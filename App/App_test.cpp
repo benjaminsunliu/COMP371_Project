@@ -1,5 +1,6 @@
 #include <iostream>
 #include "vertexData.h"
+#include "CarVertex/CyberTruck.h"
 
 
 #define GLEW_STATIC 1   // This allows linking with Static Library on Windows, without DLL
@@ -240,7 +241,7 @@ int main(int argc, char*argv[])
         int vertexCount = sizeof(cybertruckVertices) / (6 * sizeof(float));
         glm::mat4 cybertruckModel = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0.5f, 0.0f)) *
                             glm::rotate(glm::mat4(1.0f), glm::radians(yaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
-                            glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+                            glm::scale(glm::mat4(1.0f), glm::vec3(5.0f));
         glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &cybertruckModel[0][0]);
         glBindVertexArray(cybertruckVAO);
         glDrawArrays(GL_TRIANGLES, 0, vertexCount);
