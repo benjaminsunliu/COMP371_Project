@@ -114,6 +114,7 @@ GLuint createVAO(float* vertices, size_t size) {
 glm::vec3 cameraPos   = glm::vec3(0.0f, 1.5f,  5.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
+glm::vec3 cameraSide = glm::cross(cameraFront, cameraUp);
 float deltaTime = 0.0f; // Time between current frame and last frame
 float lastFrame = 0.0f;
 
@@ -204,6 +205,29 @@ int main(int argc, char*argv[])
         
         glfwSwapBuffers(window); // Swap buffers
         glfwPollEvents(); // Poll for events
+
+        // Handle inputs
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            glfwSetWindowShouldClose(window, true);
+        
+        // Camera controls
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){
+            cameraPos += cameraFront * deltaTime * 1.0f; // Move forward
+        }
+
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS){
+            cameraPos -= cameraFront * deltaTime * 1.0f; // Move backward
+        }
+
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS){
+            cameraPos -= cameraSide * deltaTime * 1.0f; // Move left
+        } 
+        
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS){
+            cameraPos += cameraSide * deltaTime * 1.0f; // Move right
+        }
+
+
     }
     
     glDeleteVertexArrays(1, &cubeVAO);
