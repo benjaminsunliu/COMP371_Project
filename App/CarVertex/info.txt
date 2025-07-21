@@ -1,4 +1,4 @@
-Samples 3-D Objects -- We can simply/generalize the vertices
+Samples 3-D Objects -- We can simplify/generalize the vertices into larger chunks
 
 https://poly.pizza/m/xsMtZhBkxL
 https://www.cgtrader.com/
