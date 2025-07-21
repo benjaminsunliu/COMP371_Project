@@ -12,6 +12,33 @@
 #include <glm/gtc/matrix_transform.hpp> // include this to create transformation matrices
 #include <glm/common.hpp>
 
+// Mouse state
+double lastX = 0.0f, lastY = 0.0f;
+float yaw = 0.0f;
+bool firstMouse = true;
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    static float sensitivity = 0.1f;
+
+    // Only rotate if left mouse button is held
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        if (firstMouse) {
+            lastX = xpos;
+            firstMouse = false;
+            return;
+        }
+
+        float xoffset = xpos - lastX;
+        lastX = xpos;
+
+        yaw += xoffset * sensitivity;
+    } else {
+        // Reset tracking so it doesn't jump when clicking again
+        firstMouse = true;
+    }
+}
+
 
 const char* getVertexShaderSource()
 {
@@ -138,6 +165,7 @@ int main(int argc, char*argv[])
         return -1;
     }
     glfwMakeContextCurrent(window);
+    glfwSetCursorPosCallback(window, mouse_callback);
 
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
     glViewport(0, 0, width, height);
@@ -163,6 +191,8 @@ int main(int argc, char*argv[])
     // Define and upload geometry to the GPU here ...
     GLuint cubeVAO = createVAO(cubeVertices, sizeof(cubeVertices));
     GLuint floorVAO = createVAO(floorVertices, sizeof(floorVertices));
+    GLuint cybertruckVAO = createVAO(cybertruckVertices, sizeof(cybertruckVertices));
+
 
     GLint modelLocation = glGetUniformLocation(shaderProgram, "world");
     GLint viewLocation  = glGetUniformLocation(shaderProgram, "view");
@@ -193,19 +223,30 @@ int main(int argc, char*argv[])
         // Get the location of the color uniform
         int colorLocation = glGetUniformLocation(shaderProgram, "vertexColor");
 
-        // Draw the floor
-        glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1000.0f, 0.02f, 1000.0f));
-        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &floorModel[0][0]);
-        glBindVertexArray(floorVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        // // Draw the floor
+        // glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1000.0f, 0.02f, 1000.0f));
+        // glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &floorModel[0][0]);
+        // glBindVertexArray(floorVAO);
+        // glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        // Draw the cube
-        glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(45.0f * currentFrame), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &cubeModel[0][0]);
-        glBindVertexArray(cubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36); // 36 vertices for a cube
+        // // Draw the cube
+        // glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(45.0f * currentFrame), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+        // glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &cubeModel[0][0]);
+        // glBindVertexArray(cubeVAO);
+        // glDrawArrays(GL_TRIANGLES, 0, 36); // 36 vertices for a cube
         
-       
+        // Draw the Cybertruck (centered and scaled)
+
+        int vertexCount = sizeof(cybertruckVertices) / (6 * sizeof(float));
+        glm::mat4 cybertruckModel = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0.5f, 0.0f)) *
+                            glm::rotate(glm::mat4(1.0f), glm::radians(yaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
+                            glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &cybertruckModel[0][0]);
+        glBindVertexArray(cybertruckVAO);
+        glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+
+
+        
         
         glfwSwapBuffers(window); // Swap buffers
         glfwPollEvents(); // Poll for events
