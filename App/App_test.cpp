@@ -13,6 +13,9 @@
 #include <glm/gtc/matrix_transform.hpp> // include this to create transformation matrices
 #include <glm/common.hpp>
 
+using namespace glm;
+using namespace std;   
+
 // Mouse state
 double lastX = 0.0f, lastY = 0.0f;
 float yaw = 0.0f;
@@ -143,6 +146,9 @@ glm::vec3 cameraPos   = glm::vec3(0.0f, 1.5f,  5.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
 glm::vec3 cameraSide = glm::cross(cameraFront, cameraUp);
+float cameraHorizontalAngle = 90.0f;
+float cameraVerticalAngle = 0.0f;
+bool  cameraFirstPerson = true; // press 1 or 2 to toggle this variable
 float deltaTime = 0.0f; // Time between current frame and last frame
 float lastFrame = 0.0f;
 
@@ -181,6 +187,12 @@ int main(int argc, char*argv[])
         return -1;
     }
 
+    // For frame time
+    float lastFrameTime = glfwGetTime();
+    int lastMouseLeftState = GLFW_RELEASE;
+    double lastMousePosX, lastMousePosY;
+    glfwGetCursorPos(window, &lastMousePosX, &lastMousePosY);
+
     glEnable(GL_DEPTH_TEST); // Enable depth testing for 3D rendering
 
     // Black background
@@ -188,38 +200,35 @@ int main(int argc, char*argv[])
     
     // Compile and link shaders here ...
     int shaderProgram = compileAndLinkShaders();
+
+    glUseProgram(shaderProgram); // Use our shader program
     
     // Define and upload geometry to the GPU here ...
     GLuint cubeVAO = createVAO(cubeVertices, sizeof(cubeVertices));
     GLuint floorVAO = createVAO(floorVertices, sizeof(floorVertices));
     GLuint cybertruckVAO = createVAO(cybertruckVertices, sizeof(cybertruckVertices));
 
+    // Set up projection matrix
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.f/600.f, 0.1f, 100.0f);
+    
+    // Set up view matrix
+    glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
     GLint modelLocation = glGetUniformLocation(shaderProgram, "world");
     GLint viewLocation  = glGetUniformLocation(shaderProgram, "view");
     GLint projLocation  = glGetUniformLocation(shaderProgram, "projection");
-
-    // Set the projection matrix
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.f/600.f, 0.1f, 100.0f);
+    glUniformMatrix4fv(projLocation, 1, GL_FALSE, &projection[0][0]);
+    glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
+    
     
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
         // Frame time calculation
-        float currentFrame = glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
+        float deltaTime = glfwGetTime() - lastFrameTime;
+        lastFrameTime = glfwGetTime();
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen
-        
-        glUseProgram(shaderProgram); // Use our shader program
-
-        // Set the view matrix
-        glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-        glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
-
-        // Set the projection matrix
-        glUniformMatrix4fv(projLocation, 1, GL_FALSE, &projection[0][0]);
 
         // Get the location of the color uniform
         int colorLocation = glGetUniformLocation(shaderProgram, "vertexColor");
@@ -247,6 +256,20 @@ int main(int argc, char*argv[])
         glDrawArrays(GL_TRIANGLES, 0, vertexCount);
 
 
+        if(cameraFirstPerson){
+            view = lookAt(cameraPos,  // eye
+                                 cameraPos + cameraFront,  // center
+                                 cameraUp ); // up
+        } else{
+            float radius = 5.0f;
+            glm::vec3 position = cameraPos - radius * cameraFront; // position is on a sphere around the camera position
+            view = lookAt(position,  // eye
+                                 position + cameraFront,  // center
+                                 cameraUp ); // up
+        }
+
+        glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
+
         
         
         glfwSwapBuffers(window); // Swap buffers
@@ -273,10 +296,24 @@ int main(int argc, char*argv[])
             cameraPos += cameraSide * deltaTime * 1.0f; // Move right
         }
 
+        // 1st person and 3rd person camera toggle
+        
+        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) 
+        {
+            cameraFirstPerson = true;
+        }
+
+        if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) 
+        {
+            cameraFirstPerson = false;
+        }
+
 
     }
     
     glDeleteVertexArrays(1, &cubeVAO);
+    glDeleteVertexArrays(1, &floorVAO);
+    glDeleteVertexArrays(1, &cybertruckVAO);
     
     glfwTerminate(); // Terminate GLFW
     return 0;
