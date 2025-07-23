@@ -13,6 +13,9 @@
 #include <glm/gtc/matrix_transform.hpp> // include this to create transformation matrices
 #include <glm/common.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
+
 using namespace glm;
 using namespace std;   
 
@@ -21,28 +24,16 @@ double lastX = 0.0f, lastY = 0.0f;
 float yaw = 0.0f;
 bool firstMouse = true;
 
-void mouse_callback(GLFWwindow* window, double xpos, double ypos)
-{
-    static float sensitivity = 0.1f;
-
-    // Only rotate if left mouse button is held
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-        if (firstMouse) {
-            lastX = xpos;
-            firstMouse = false;
-            return;
-        }
-
-        float xoffset = xpos - lastX;
-        lastX = xpos;
-
-        yaw += xoffset * sensitivity;
-    } else {
-        // Reset tracking so it doesn't jump when clicking again
-        firstMouse = true;
-    }
-}
-
+// Camera variables
+glm::vec3 cameraPos   = glm::vec3(0.0f, 1.5f,  5.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
+glm::vec3 cameraSide = glm::cross(cameraFront, cameraUp);
+float cameraHorizontalAngle = 90.0f;
+float cameraVerticalAngle = 0.0f;
+bool  cameraFirstPerson = true; // press 1 or 2 to toggle this variable
+float deltaTime = 0.0f; // Time between current frame and last frame
+float lastFrame = 0.0f;
 
 const char* getVertexShaderSource()
 {
@@ -77,14 +68,14 @@ const char* getFragmentShaderSource()
 }
 
 
-int compileAndLinkShaders()
+int compileAndLinkShaders(const char* vertexShaderSource, const char* fragmentShaderSource)
 {
          // vertex shader
         int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        const char* vertexShaderSource = getVertexShaderSource();
         glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
         glCompileShader(vertexShader);
         // check for shader compile errors
+
         int success;
         char infoLog[512];
         glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
@@ -92,11 +83,12 @@ int compileAndLinkShaders()
         glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
         std::cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
         }
+
         // fragment shader
         int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        const char* fragmentShaderSource = getFragmentShaderSource();
         glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
         glCompileShader(fragmentShader);
+
         // check for shader compile errors
         glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
         if (!success){
@@ -108,6 +100,7 @@ int compileAndLinkShaders()
         glAttachShader(shaderProgram, vertexShader);
         glAttachShader(shaderProgram, fragmentShader);
         glLinkProgram(shaderProgram);
+
         // check for linking errors
         glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
         if (!success) {
@@ -120,6 +113,88 @@ int compileAndLinkShaders()
 
 }
 
+// Texture methods
+
+const char* getTexturedVertexShaderSource()
+{
+    // For now, you use a string for your shader code, in the assignment, shaders will be stored in .glsl files
+    return
+                "#version 330 core\n"
+                "layout (location = 0) in vec3 aPos;"
+                "layout (location = 1) in vec3 aColor;"
+                "layout (location = 2) in vec2 aUV;"
+                ""
+                "uniform mat4 world;"
+                "uniform mat4 view = mat4(1.0);"  // default value for view matrix (identity)
+                "uniform mat4 projection = mat4(1.0);"
+                ""
+                "out vec3 vertexColor;"
+                "out vec2 vertexUV;"
+                "void main()"
+                "{"
+                "   vertexColor = aColor;"
+                "   mat4 modelViewProjection = projection * view * world;"
+                "   gl_Position = modelViewProjection * vec4(aPos.x, aPos.y, aPos.z, 1.0);"
+                "   vertexUV = aUV;"
+                "}";
+}
+
+const char* getTexturedFragmentShaderSource()
+{
+    return
+                "#version 330 core\n"
+                "in vec3 vertexColor;"
+                "in vec2 vertexUV;"
+                "uniform sampler2D textureSampler;"
+                ""
+                "out vec4 FragColor;"
+                "void main()"
+                "{"
+                "   vec4 textureColor = texture(textureSampler, vertexUV);"
+                "   FragColor = textureColor;"
+                "}";
+}
+
+GLuint loadTexture(const char *filename)
+{
+    // Step 1 load Textures with dimension data
+    int width, height, nrChannels;
+    unsigned char *data = stbi_load(filename, &width, &height, &nrChannels, 0);
+    if (!data){
+        std::cerr << "Failed to load texture: " << filename << std::endl;
+        return 0;
+    }
+
+    // Step 2 create and bind textures
+    GLuint textureId = 0;
+    glGenTextures(1, &textureId);
+    assert(textureId != 0);
+
+    glBindTexture(GL_TEXTURE_2D, textureId);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // Step 3 set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Step 4 upload texture data to GPU
+    GLenum format = 0;
+    if (nrChannels == 1)
+        format = GL_RED;
+    else if (nrChannels == 3)
+        format = GL_RGB;
+    else if (nrChannels == 4)
+        format = GL_RGBA;
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+
+    // Step 5 Free resources
+    stbi_image_free(data);
+    glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture
+    return textureId;
+}
+
+// Create a Vertex Array Object (VAO) and Vertex Buffer Object (VBO) for the vertices
 GLuint createVAO(float* vertices, size_t size) {
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
@@ -141,16 +216,48 @@ GLuint createVAO(float* vertices, size_t size) {
     return VAO;
 }
 
-// Camera variables
-glm::vec3 cameraPos   = glm::vec3(0.0f, 1.5f,  5.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
-glm::vec3 cameraSide = glm::cross(cameraFront, cameraUp);
-float cameraHorizontalAngle = 90.0f;
-float cameraVerticalAngle = 0.0f;
-bool  cameraFirstPerson = true; // press 1 or 2 to toggle this variable
-float deltaTime = 0.0f; // Time between current frame and last frame
-float lastFrame = 0.0f;
+GLuint createTexturedVAO(float* vertices, size_t size) {
+    GLuint VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
+
+    //position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);              
+    glEnableVertexAttribArray(0);
+
+    // color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    // uv attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    return VAO;
+}
+
+// Set the projection, view, and world matrices in the shader methods
+void setProjectionMatrix(int shaderProgram, const glm::mat4& projectionMatrix)
+{
+    GLuint location = glGetUniformLocation(shaderProgram, "projection");
+    glUniformMatrix4fv(location, 1, GL_FALSE, &projectionMatrix[0][0]);
+}
+
+void setViewMatrix(int shaderProgram, const glm::mat4& viewMatrix)
+{
+    GLuint location = glGetUniformLocation(shaderProgram, "view");
+    glUniformMatrix4fv(location, 1, GL_FALSE, &viewMatrix[0][0]);
+}
+
+void setWorldMatrix(int shaderProgram, const glm::mat4& worldMatrix)
+{
+    GLuint location = glGetUniformLocation(shaderProgram, "world");
+    glUniformMatrix4fv(location, 1, GL_FALSE, &worldMatrix[0][0]);
+}
 
 int main(int argc, char*argv[])
 {
@@ -172,12 +279,15 @@ int main(int argc, char*argv[])
         return -1;
     }
     glfwMakeContextCurrent(window);
-    glfwSetCursorPosCallback(window, mouse_callback);
 
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
     glViewport(0, 0, width, height);
     });
     
+    // Load textures
+
+    GLuint grassTextureID = loadTexture("Textures/grass.jpeg");
+    GLuint asphaltTextureID = loadTexture("Textures/asphalt.jpg");
 
     // Initialize GLEW
     glewExperimental = true; // Needed for core profile
@@ -199,13 +309,15 @@ int main(int argc, char*argv[])
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     
     // Compile and link shaders here ...
-    int shaderProgram = compileAndLinkShaders();
+    int shaderProgram = compileAndLinkShaders(getVertexShaderSource(), getFragmentShaderSource());
+    int texturedShaderProgram = compileAndLinkShaders(getTexturedVertexShaderSource(), getTexturedFragmentShaderSource());
+    
 
     glUseProgram(shaderProgram); // Use our shader program
     
     // Define and upload geometry to the GPU here ...
     GLuint cubeVAO = createVAO(cubeVertices, sizeof(cubeVertices));
-    GLuint floorVAO = createVAO(floorVertices, sizeof(floorVertices));
+    GLuint floorVAO = createTexturedVAO(floorVertices,sizeof(floorVertices));
     GLuint cybertruckVAO = createVAO(cybertruckVertices, sizeof(cybertruckVertices));
 
     // Set up projection matrix
@@ -220,7 +332,9 @@ int main(int argc, char*argv[])
     glUniformMatrix4fv(projLocation, 1, GL_FALSE, &projection[0][0]);
     glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
     
-    
+    // disable cursor
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
@@ -233,11 +347,21 @@ int main(int argc, char*argv[])
         // Get the location of the color uniform
         int colorLocation = glGetUniformLocation(shaderProgram, "vertexColor");
 
-        // // Draw the floor
-        // glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1000.0f, 0.02f, 1000.0f));
-        // glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &floorModel[0][0]);
-        // glBindVertexArray(floorVAO);
-        // glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        glUseProgram(texturedShaderProgram);
+        GLuint textureSamplerLocation = glGetUniformLocation(texturedShaderProgram, "textureSampler");
+        glActiveTexture(GL_TEXTURE0); // Activate texture unit 0
+        glBindTexture(GL_TEXTURE_2D, grassTextureID); // Bind the grass texture
+        glUniform1i(textureSamplerLocation, 0); // Set the texture sampler to use texture unit 0
+       
+        // Draw the floor
+        glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 0.02f, 10.0f));
+        setWorldMatrix(texturedShaderProgram, floorModel);
+        setProjectionMatrix(texturedShaderProgram, projection);
+        setViewMatrix(texturedShaderProgram, view);
+
+        glBindVertexArray(floorVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         // // Draw the cube
         // glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(45.0f * currentFrame), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
@@ -246,6 +370,7 @@ int main(int argc, char*argv[])
         // glDrawArrays(GL_TRIANGLES, 0, 36); // 36 vertices for a cube
         
         // Draw the Cybertruck (centered and scaled)
+        glUseProgram(shaderProgram);
 
         int vertexCount = sizeof(cybertruckVertices) / (6 * sizeof(float));
         glm::mat4 cybertruckModel = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0.5f, 0.0f)) *
@@ -280,6 +405,33 @@ int main(int argc, char*argv[])
             glfwSetWindowShouldClose(window, true);
         
         // Camera controls
+
+        double mousePosX, mousePosY;
+        glfwGetCursorPos(window, &mousePosX, &mousePosY);
+        
+        double dx = mousePosX - lastMousePosX;
+        double dy = mousePosY - lastMousePosY;
+        
+        lastMousePosX = mousePosX;
+        lastMousePosY = mousePosY;
+
+        // Convert to spherical coordinates
+        const float cameraAngularSpeed = 1.0f;
+        cameraHorizontalAngle -= dx * cameraAngularSpeed * deltaTime;
+        cameraVerticalAngle   -= dy * cameraAngularSpeed * deltaTime;
+        
+        // Clamp vertical angle to [-85, 85] degrees
+        cameraVerticalAngle = std::max(-85.0f, std::min(85.0f, cameraVerticalAngle));
+        
+        float theta = radians(cameraHorizontalAngle);
+        float phi = radians(cameraVerticalAngle);
+        
+        cameraFront = vec3(cosf(phi)*cosf(theta), sinf(phi), -cosf(phi)*sinf(theta));
+        vec3 cameraSideVector = cross(cameraFront, vec3(0.0f, 1.0f, 0.0f));
+        
+        glm::normalize(cameraSideVector);
+
+
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){
             cameraPos += cameraFront * deltaTime * 1.0f; // Move forward
         }

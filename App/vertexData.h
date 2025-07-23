@@ -41,12 +41,18 @@ inline float cubeVertices[] = {
     -0.5f,  0.5f, -0.5f,  0.5f, 0.5f, 0.5f,
 };
 
+const float tilting = 100.0f;
+
 inline float floorVertices[] = {
-    // positions          // colors
-    -5.0f, 0.0f, -5.0f,  1, 1, 1,
-     5.0f, 0.0f, -5.0f,  1, 1, 1,
-     5.0f, 0.0f,  5.0f,  1, 1, 1,
-     5.0f, 0.0f,  5.0f,  1, 1, 1,
-    -5.0f, 0.0f, -5.0f,  1, 1, 1,
-    -5.0f, 0.0f,  5.0f,  1, 1, 1
+    // positions        // colors        // UVs (multiplied by tiling factor 10)
+    -5.0f, 0.0f, -5.0f, 1, 1, 1,        0.0f, 0.0f,
+     5.0f, 0.0f, -5.0f, 1, 1, 1,        tilting, 0.0f,
+     5.0f, 0.0f,  5.0f, 1, 1, 1,        tilting, tilting,
+
+     5.0f, 0.0f,  5.0f, 1, 1, 1,        tilting, tilting,
+    -5.0f, 0.0f, -5.0f, 1, 1, 1,        0.0f, 0.0f,
+    -5.0f, 0.0f,  5.0f, 1, 1, 1,        0.0f, tilting
 };
+
+
+
