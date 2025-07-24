@@ -1,6 +1,8 @@
 #include <iostream>
 #include "vertexData.h"
 #include "CarVertex/CyberTruck.h"
+#include <fstream>
+#include <sstream>
 
 
 #define GLEW_STATIC 1   // This allows linking with Static Library on Windows, without DLL
@@ -14,7 +16,7 @@
 #include <glm/common.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
+#include "stb_image.h"
 
 using namespace glm;
 using namespace std;   
@@ -33,6 +35,52 @@ float cameraVerticalAngle = 0.0f;
 bool  cameraFirstPerson = true; // press 1 or 2 to toggle this variable
 float deltaTime = 0.0f; // Time between current frame and last frame
 float lastFrame = 0.0f;
+
+// ─── Racing-curb quad (2 triangles, POS-COL-UV) ────────────────
+static const float curbVerts[] = {
+    //   x     y     z       r  g  b      u     v
+    -0.5f, 0.0f,  0.5f,    1, 1, 1,     0.0f,  0.0f,   // TL
+     0.5f, 0.0f, -0.5f,    1, 1, 1,     1.0f, 50.0f,   // BR
+    -0.5f, 0.0f, -0.5f,    1, 1, 1,     0.0f, 50.0f,   // BL
+
+    -0.5f, 0.0f,  0.5f,    1, 1, 1,     0.0f,  0.0f,   // TL
+     0.5f, 0.0f,  0.5f,    1, 1, 1,     1.0f,  0.0f,   // TR
+     0.5f, 0.0f, -0.5f,    1, 1, 1,     1.0f, 50.0f    // BR
+};
+
+// ─── Simple OBJ loader producing pos+col (6-float) vertices ──────────────
+bool loadOBJwithColor(const std::string& path,
+                      std::vector<float>& outVerts,
+                      const glm::vec3& color = glm::vec3(0.3f,0.8f,0.3f))
+{
+    std::ifstream in(path);
+    if(!in){ std::cerr<<"Cannot open "<<path<<'\n'; return false; }
+
+    std::vector<glm::vec3> positions;
+    std::string line;
+    while(std::getline(in,line)){
+        if(line.rfind("v ",0)==0){          // vertex position
+            std::istringstream s(line.substr(2));
+            glm::vec3 pos; s>>pos.x>>pos.y>>pos.z;
+            positions.push_back(pos);
+        }
+        // we skip vt / vn / f etc. because Tree1.obj is assumed triangulated
+    }
+
+    // Faces – triangulated, indices are 1-based.
+    in.clear(); in.seekg(0);
+    while(std::getline(in,line)){
+        if(line.rfind("f ",0)!=0) continue;
+        std::istringstream s(line.substr(2));
+        for(int i=0;i<3;++i){      // each face has three vertices
+            std::string v; s>>v;
+            int idx = std::stoi(v.substr(0,v.find('/'))) - 1;
+            const glm::vec3& p = positions[idx];
+            outVerts.insert(outVerts.end(), {p.x,p.y,p.z, color.r,color.g,color.b});
+        }
+    }
+    return !outVerts.empty();
+}
 
 const char* getVertexShaderSource()
 {
@@ -63,6 +111,31 @@ const char* getFragmentShaderSource()
         "void main()"
         "{"
         "   FragColor = vec4(vertexColor, 1.0);"
+        "}";
+}
+
+const char* getTreeVertexShaderSource()
+{
+    return
+        "#version 330 core\n"
+        "layout(location=0) in vec3 aPos;"
+        "layout(location=1) in vec3 aNormal;"
+        "out vec3 vertexNormal;"
+        "uniform mat4 world, view, projection;"
+        "void main(){"
+        "  vertexNormal = aNormal;"
+        "  gl_Position  = projection * view * world * vec4(aPos,1.0);"
+        "}";
+}
+
+const char* getTreeFragmentShaderSource()
+{
+    return
+        "#version 330 core\n"
+        "in  vec3 vertexNormal;"
+        "out vec4 FragColor;"
+        "void main(){"
+        "  FragColor = vec4(0.5*vertexNormal + vec3(0.5), 1.0);"
         "}";
 }
 
@@ -287,6 +360,7 @@ int main(int argc, char*argv[])
 
     GLuint grassTextureID = loadTexture("Textures/grass.jpg");
     GLuint asphaltTextureID = loadTexture("Textures/asphalt.jpg");
+    GLuint curbTextureID = loadTexture("Textures/curb.jpg");
 
     // Initialize GLEW
     glewExperimental = true; // Needed for core profile
@@ -319,6 +393,10 @@ int main(int argc, char*argv[])
     GLuint floorVAO = createTexturedVAO(floorVertices,sizeof(floorVertices));
     GLuint roadVAO = createTexturedVAO(roadVertices, sizeof(roadVertices));
     GLuint cybertruckVAO = createVAO(cybertruckVertices, sizeof(cybertruckVertices));
+    GLuint curbVAO = createTexturedVAO(const_cast<float*>(curbVerts),sizeof(curbVerts));
+
+    
+
 
     // Set up projection matrix
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.f/600.f, 0.1f, 100.0f);
@@ -379,6 +457,36 @@ int main(int argc, char*argv[])
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
 
+        // ─── Draw textured kerbs ───────────────────────────────────────
+        glUseProgram(texturedShaderProgram);
+        setProjectionMatrix(texturedShaderProgram, projection);
+        setViewMatrix(texturedShaderProgram, view);
+        glBindVertexArray(curbVAO);
+        glBindTexture(GL_TEXTURE_2D, curbTextureID);   // red-white texture
+        glUniform1i(glGetUniformLocation(texturedShaderProgram,"textureSampler"),0);
+
+        const float curbW = 0.30f;
+        const float halfRoad = 1.5f;
+        const float halfCurb = curbW * 0.5f;
+        float offset = halfRoad + halfCurb;
+
+        // left side
+        glm::mat4 curbL = glm::translate(glm::mat4(1.0f),
+                        glm::vec3(-offset, 0.002f, 0.0f)) *
+                        glm::scale(glm::mat4(1.0f),
+                        glm::vec3(curbW, 0.01f, 100.0f));
+        setWorldMatrix(texturedShaderProgram, curbL);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        // right side  (same texture, mirrored)
+        glm::mat4 curbR = glm::translate(glm::mat4(1.0f),
+                        glm::vec3( offset, 0.002f, 0.0f)) *
+                        glm::scale(glm::mat4(1.0f),
+                        glm::vec3(curbW, 0.01f, 100.0f));
+        setWorldMatrix(texturedShaderProgram, curbR);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+
 
         // // Draw the cube
         // glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(45.0f * currentFrame), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
@@ -433,7 +541,7 @@ int main(int argc, char*argv[])
         lastMousePosY = mousePosY;
 
         // Convert to spherical coordinates
-        const float cameraAngularSpeed = 1.0f;
+        const float cameraAngularSpeed = 3.0f;
         cameraHorizontalAngle -= dx * cameraAngularSpeed * deltaTime;
         cameraVerticalAngle   -= dy * cameraAngularSpeed * deltaTime;
         
@@ -483,6 +591,8 @@ int main(int argc, char*argv[])
     glDeleteVertexArrays(1, &floorVAO);
     glDeleteVertexArrays(1, &roadVAO);
     glDeleteVertexArrays(1, &cybertruckVAO);
+    glDeleteVertexArrays(1, &curbVAO);
+
     
     glfwTerminate(); // Terminate GLFW
     return 0;
