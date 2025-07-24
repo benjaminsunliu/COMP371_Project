@@ -28,7 +28,6 @@ bool firstMouse = true;
 glm::vec3 cameraPos   = glm::vec3(0.0f, 1.5f,  5.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
-glm::vec3 cameraSide = glm::cross(cameraFront, cameraUp);
 float cameraHorizontalAngle = 90.0f;
 float cameraVerticalAngle = 0.0f;
 bool  cameraFirstPerson = true; // press 1 or 2 to toggle this variable
@@ -306,7 +305,7 @@ int main(int argc, char*argv[])
     glEnable(GL_DEPTH_TEST); // Enable depth testing for 3D rendering
 
     // Black background
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(135.0f/255.0f, 206.0f/255.0f, 235.0f/255.0f, 1.0f);
     
     // Compile and link shaders here ...
     int shaderProgram = compileAndLinkShaders(getVertexShaderSource(), getFragmentShaderSource());
@@ -427,9 +426,8 @@ int main(int argc, char*argv[])
         float phi = radians(cameraVerticalAngle);
         
         cameraFront = vec3(cosf(phi)*cosf(theta), sinf(phi), -cosf(phi)*sinf(theta));
-        vec3 cameraSideVector = cross(cameraFront, vec3(0.0f, 1.0f, 0.0f));
-        
-        glm::normalize(cameraSideVector);
+        vec3 cameraSide = cross(cameraFront, vec3(0.0f, 1.0f, 0.0f));
+        glm::normalize(cameraSide);
 
 
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){
