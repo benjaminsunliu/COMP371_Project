@@ -285,7 +285,7 @@ int main(int argc, char*argv[])
     
     // Load textures
 
-    GLuint grassTextureID = loadTexture("Textures/grass.jpeg");
+    GLuint grassTextureID = loadTexture("Textures/grass.jpg");
     GLuint asphaltTextureID = loadTexture("Textures/asphalt.jpg");
 
     // Initialize GLEW
@@ -317,6 +317,7 @@ int main(int argc, char*argv[])
     // Define and upload geometry to the GPU here ...
     GLuint cubeVAO = createVAO(cubeVertices, sizeof(cubeVertices));
     GLuint floorVAO = createTexturedVAO(floorVertices,sizeof(floorVertices));
+    GLuint roadVAO = createTexturedVAO(roadVertices, sizeof(roadVertices));
     GLuint cybertruckVAO = createVAO(cybertruckVertices, sizeof(cybertruckVertices));
 
     // Set up projection matrix
@@ -354,13 +355,30 @@ int main(int argc, char*argv[])
         glUniform1i(textureSamplerLocation, 0); // Set the texture sampler to use texture unit 0
        
         // Draw the floor
-        glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 0.02f, 10.0f));
+        glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1000.0f, 0.02f, 1000.0f));
         setWorldMatrix(texturedShaderProgram, floorModel);
         setProjectionMatrix(texturedShaderProgram, projection);
         setViewMatrix(texturedShaderProgram, view);
 
         glBindVertexArray(floorVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        // Draw the road
+        
+        glm::mat4 roadModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.001f, 0.0f)) *
+                            glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 0.01f, 100.0f));
+
+        glActiveTexture(GL_TEXTURE0); // Activate texture unit 0
+        glBindTexture(GL_TEXTURE_2D, asphaltTextureID); // Bind the asphalt texture
+        glUniform1i(textureSamplerLocation, 0); // Set the texture sampler to use texture unit 0
+
+        setWorldMatrix(texturedShaderProgram, roadModel);
+        setProjectionMatrix(texturedShaderProgram, projection);
+        setViewMatrix(texturedShaderProgram, view);
+        glBindVertexArray(roadVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+
 
         // // Draw the cube
         // glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(45.0f * currentFrame), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
@@ -463,6 +481,7 @@ int main(int argc, char*argv[])
     
     glDeleteVertexArrays(1, &cubeVAO);
     glDeleteVertexArrays(1, &floorVAO);
+    glDeleteVertexArrays(1, &roadVAO);
     glDeleteVertexArrays(1, &cybertruckVAO);
     
     glfwTerminate(); // Terminate GLFW
