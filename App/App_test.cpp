@@ -3,6 +3,7 @@
 #include "CarVertex/CyberTruck.h"
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 
 #define GLEW_STATIC 1   // This allows linking with Static Library on Windows, without DLL
@@ -16,7 +17,7 @@
 #include <glm/common.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include <stb/stb_image.h>
 
 using namespace glm;
 using namespace std;   
@@ -35,52 +36,6 @@ float cameraVerticalAngle = 0.0f;
 bool  cameraFirstPerson = true; // press 1 or 2 to toggle this variable
 float deltaTime = 0.0f; // Time between current frame and last frame
 float lastFrame = 0.0f;
-
-// ─── Racing-curb quad (2 triangles, POS-COL-UV) ────────────────
-static const float curbVerts[] = {
-    //   x     y     z       r  g  b      u     v
-    -0.5f, 0.0f,  0.5f,    1, 1, 1,     0.0f,  0.0f,   // TL
-     0.5f, 0.0f, -0.5f,    1, 1, 1,     1.0f, 50.0f,   // BR
-    -0.5f, 0.0f, -0.5f,    1, 1, 1,     0.0f, 50.0f,   // BL
-
-    -0.5f, 0.0f,  0.5f,    1, 1, 1,     0.0f,  0.0f,   // TL
-     0.5f, 0.0f,  0.5f,    1, 1, 1,     1.0f,  0.0f,   // TR
-     0.5f, 0.0f, -0.5f,    1, 1, 1,     1.0f, 50.0f    // BR
-};
-
-// ─── Simple OBJ loader producing pos+col (6-float) vertices ──────────────
-bool loadOBJwithColor(const std::string& path,
-                      std::vector<float>& outVerts,
-                      const glm::vec3& color = glm::vec3(0.3f,0.8f,0.3f))
-{
-    std::ifstream in(path);
-    if(!in){ std::cerr<<"Cannot open "<<path<<'\n'; return false; }
-
-    std::vector<glm::vec3> positions;
-    std::string line;
-    while(std::getline(in,line)){
-        if(line.rfind("v ",0)==0){          // vertex position
-            std::istringstream s(line.substr(2));
-            glm::vec3 pos; s>>pos.x>>pos.y>>pos.z;
-            positions.push_back(pos);
-        }
-        // we skip vt / vn / f etc. because Tree1.obj is assumed triangulated
-    }
-
-    // Faces – triangulated, indices are 1-based.
-    in.clear(); in.seekg(0);
-    while(std::getline(in,line)){
-        if(line.rfind("f ",0)!=0) continue;
-        std::istringstream s(line.substr(2));
-        for(int i=0;i<3;++i){      // each face has three vertices
-            std::string v; s>>v;
-            int idx = std::stoi(v.substr(0,v.find('/'))) - 1;
-            const glm::vec3& p = positions[idx];
-            outVerts.insert(outVerts.end(), {p.x,p.y,p.z, color.r,color.g,color.b});
-        }
-    }
-    return !outVerts.empty();
-}
 
 const char* getVertexShaderSource()
 {
@@ -413,6 +368,8 @@ int main(int argc, char*argv[])
     // disable cursor
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
+    glEnable(GL_DEPTH_TEST); // Enable depth testing for 3D rendering
+    glEnable(GL_CULL_FACE);
     // Main loop
     while (!glfwWindowShouldClose(window))
     {

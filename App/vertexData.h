@@ -44,28 +44,39 @@ inline float cubeVertices[] = {
 const float tilting = 5000.0f;
 
 inline float floorVertices[] = {
-    // positions        // colors        // UVs (multiplied by tiling factor 10)
-    -5.0f, 0.0f, -5.0f, 1, 1, 1,        0.0f, 0.0f,
-     5.0f, 0.0f, -5.0f, 1, 1, 1,        tilting, 0.0f,
-     5.0f, 0.0f,  5.0f, 1, 1, 1,        tilting, tilting,
+    // positions         // colors        // UVs
+    -5.0f, 0.0f, -5.0f,   1, 1, 1,        0.0f, 0.0f,
+     5.0f, 0.0f,  5.0f,   1, 1, 1,        tilting, tilting,
+     5.0f, 0.0f, -5.0f,   1, 1, 1,        tilting, 0.0f,
 
-     5.0f, 0.0f,  5.0f, 1, 1, 1,        tilting, tilting,
-    -5.0f, 0.0f, -5.0f, 1, 1, 1,        0.0f, 0.0f,
-    -5.0f, 0.0f,  5.0f, 1, 1, 1,        0.0f, tilting
+     5.0f, 0.0f,  5.0f,   1, 1, 1,        tilting, tilting,
+    -5.0f, 0.0f, -5.0f,   1, 1, 1,        0.0f, 0.0f,
+    -5.0f, 0.0f,  5.0f,   1, 1, 1,        0.0f, tilting
 };
 
 const float roadTilting = 100.0f;
 
-float roadVertices[] = {
-    // Positions         // Colors           // UVs
-    -0.5f, 0.0f, 0.0f,   0.5f,0.5f,0.5f,    0.0f, 0.0f,    // bottom-left
-     0.5f, 0.0f, 0.0f,   0.5f,0.5f,0.5f,    1.0f, 0.0f,    // bottom-right
-     0.5f, 0.0f, 1.0f,   0.5f,0.5f,0.5f,    1.0f, roadTilting,   // top-right
+inline float roadVertices[] = {
+    // Positions          // Colors         // UVs
+    -0.5f, 0.0f, 0.0f,    0.5f,0.5f,0.5f,   0.0f, 0.0f,       // bottom-left
+     0.5f, 0.0f, 1.0f,    0.5f,0.5f,0.5f,   1.0f, roadTilting, // top-right
+     0.5f, 0.0f, 0.0f,    0.5f,0.5f,0.5f,   1.0f, 0.0f,       // bottom-right
 
-    -0.5f, 0.0f, 0.0f,   0.5f,0.5f,0.5f,    0.0f, 0.0f,    // bottom-left
-     0.5f, 0.0f, 1.0f,   0.5f,0.5f,0.5f,    1.0f, roadTilting,   // top-right
-    -0.5f, 0.0f, 1.0f,   0.5f,0.5f,0.5f,    0.0f, roadTilting    // top-left
+    -0.5f, 0.0f, 0.0f,    0.5f,0.5f,0.5f,   0.0f, 0.0f,       // bottom-left
+    -0.5f, 0.0f, 1.0f,    0.5f,0.5f,0.5f,   0.0f, roadTilting, // top-left
+     0.5f, 0.0f, 1.0f,    0.5f,0.5f,0.5f,   1.0f, roadTilting  // top-right
 };
 
+// ─── Racing-curb quad (2 triangles, POS-COL-UV) ────────────────
+ inline float curbVerts[] = {
+    //   x     y     z       r  g  b      u     v
+    -0.5f, 0.0f,  0.5f,    1, 1, 1,     0.0f,  0.0f,   // TL
+     0.5f, 0.0f, -0.5f,    1, 1, 1,     1.0f, 50.0f,   // BR
+    -0.5f, 0.0f, -0.5f,    1, 1, 1,     0.0f, 50.0f,   // BL
+
+    -0.5f, 0.0f,  0.5f,    1, 1, 1,     0.0f,  0.0f,   // TL
+     0.5f, 0.0f,  0.5f,    1, 1, 1,     1.0f,  0.0f,   // TR
+     0.5f, 0.0f, -0.5f,    1, 1, 1,     1.0f, 50.0f    // BR
+};
 
 
