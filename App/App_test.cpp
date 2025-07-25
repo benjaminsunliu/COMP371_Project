@@ -19,6 +19,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
+#include "OBJloader.h"  //For loading .obj files
+#include "OBJloaderV2.h"  //For loading .obj files using a polygon list format
+
 using namespace glm;
 using namespace std;   
 
@@ -68,32 +71,6 @@ const char* getFragmentShaderSource()
         "   FragColor = vec4(vertexColor, 1.0);"
         "}";
 }
-
-const char* getTreeVertexShaderSource()
-{
-    return
-        "#version 330 core\n"
-        "layout(location=0) in vec3 aPos;"
-        "layout(location=1) in vec3 aNormal;"
-        "out vec3 vertexNormal;"
-        "uniform mat4 world, view, projection;"
-        "void main(){"
-        "  vertexNormal = aNormal;"
-        "  gl_Position  = projection * view * world * vec4(aPos,1.0);"
-        "}";
-}
-
-const char* getTreeFragmentShaderSource()
-{
-    return
-        "#version 330 core\n"
-        "in  vec3 vertexNormal;"
-        "out vec4 FragColor;"
-        "void main(){"
-        "  FragColor = vec4(0.5*vertexNormal + vec3(0.5), 1.0);"
-        "}";
-}
-
 
 int compileAndLinkShaders(const char* vertexShaderSource, const char* fragmentShaderSource)
 {
@@ -390,7 +367,8 @@ int main(int argc, char*argv[])
         glUniform1i(textureSamplerLocation, 0); // Set the texture sampler to use texture unit 0
        
         // Draw the floor
-        glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1000.0f, 0.02f, 1000.0f));
+        
+        glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 0.02f, 10.0f));
         setWorldMatrix(texturedShaderProgram, floorModel);
         setProjectionMatrix(texturedShaderProgram, projection);
         setViewMatrix(texturedShaderProgram, view);
@@ -400,7 +378,7 @@ int main(int argc, char*argv[])
 
         // Draw the road
         
-        glm::mat4 roadModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.001f, 0.0f)) *
+        glm::mat4 roadModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.001f, -50.0f)) *
                             glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 0.01f, 100.0f));
 
         glActiveTexture(GL_TEXTURE0); // Activate texture unit 0

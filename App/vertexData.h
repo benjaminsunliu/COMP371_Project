@@ -41,7 +41,7 @@ inline float cubeVertices[] = {
     -0.5f,  0.5f, -0.5f,  0.5f, 0.5f, 0.5f,
 };
 
-const float tilting = 5000.0f;
+const float tilting = 100.0f;
 
 inline float floorVertices[] = {
     // positions         // colors        // UVs
@@ -54,7 +54,7 @@ inline float floorVertices[] = {
     -5.0f, 0.0f,  5.0f,   1, 1, 1,        0.0f, tilting
 };
 
-const float roadTilting = 100.0f;
+const float roadTilting = 10.0f;
 
 inline float roadVertices[] = {
     // Positions          // Colors         // UVs
