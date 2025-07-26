@@ -4,6 +4,10 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 
 
 #define GLEW_STATIC 1   // This allows linking with Static Library on Windows, without DLL
@@ -19,9 +23,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
-#include "OBJloader.h"  //For loading .obj files
-#include "OBJloaderV2.h"  //For loading .obj files using a polygon list format
-
 using namespace glm;
 using namespace std;   
 
@@ -30,30 +31,23 @@ double lastX = 0.0f, lastY = 0.0f;
 float yaw = 0.0f;
 bool firstMouse = true;
 
-// Camera variables
-glm::vec3 cameraPos   = glm::vec3(0.0f, 1.5f,  5.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
-float cameraHorizontalAngle = 90.0f;
-float cameraVerticalAngle = 0.0f;
-bool  cameraFirstPerson = true; // press 1 or 2 to toggle this variable
-float deltaTime = 0.0f; // Time between current frame and last frame
-float lastFrame = 0.0f;
-
 const char* getVertexShaderSource()
 {
     return
         "#version 330 core\n"
         "layout (location = 0) in vec3 aPos;"
         "layout (location = 1) in vec3 aColor;"
+        "layout (location = 2) in vec3 aNormal;"
         ""
         "out vec3 vertexColor;"
+        "out vec3 vertexNormal;"
         "uniform mat4 world;"
         "uniform mat4 view;"
         "uniform mat4 projection;"
         ""
         "void main()\n"
         "{\n"
+        "   vertexNormal = aNormal;\n"
         "   vertexColor = aColor;\n"
         "   gl_Position = projection * view * world * vec4(aPos, 1.0);\n"
         "}\n";
@@ -65,10 +59,11 @@ const char* getFragmentShaderSource()
     return
         "#version 330 core\n"
         "in vec3 vertexColor;"
+        "in vec3 vertexNormal;"
         "out vec4 FragColor;"
         "void main()"
         "{"
-        "   FragColor = vec4(vertexColor, 1.0);"
+        "   FragColor = vec4(0.5f*vertexNormal+vec3(0.5f), 1.0f);"
         "}";
 }
 
@@ -244,6 +239,79 @@ GLuint createTexturedVAO(float* vertices, size_t size) {
     return VAO;
 }
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+#include <vector>
+#include <GL/glew.h>
+
+// Structure to return both VAO and index count
+struct ModelData {
+    GLuint VAO;
+    GLsizei indexCount;
+};
+
+ModelData loadModelWithAssimp(const std::string& path) {
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(path, 
+        aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_JoinIdenticalVertices);
+
+    if (!scene || !scene->HasMeshes()) {
+        throw std::runtime_error("Failed to load model: " + path);
+    }
+
+    const aiMesh* mesh = scene->mMeshes[0];
+
+    std::vector<float> vertices;
+    std::vector<unsigned int> indices;
+
+    for (unsigned int i = 0; i < mesh->mNumVertices; ++i) {
+        aiVector3D pos = mesh->mVertices[i];
+        aiVector3D normal = mesh->mNormals[i];
+
+        vertices.push_back(pos.x);
+        vertices.push_back(pos.y);
+        vertices.push_back(pos.z);
+
+        vertices.push_back(normal.x);
+        vertices.push_back(normal.y);
+        vertices.push_back(normal.z);
+    }
+
+    for (unsigned int i = 0; i < mesh->mNumFaces; ++i) {
+        aiFace face = mesh->mFaces[i];
+        for (unsigned int j = 0; j < face.mNumIndices; ++j) {
+            indices.push_back(face.mIndices[j]);
+        }
+    }
+
+    GLuint VBO, VAO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+
+    // Positions
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // Normals
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    glBindVertexArray(0);
+
+    return { VAO, static_cast<GLsizei>(indices.size()) };
+}
+
+
+
 // Set the projection, view, and world matrices in the shader methods
 void setProjectionMatrix(int shaderProgram, const glm::mat4& projectionMatrix)
 {
@@ -308,8 +376,6 @@ int main(int argc, char*argv[])
     double lastMousePosX, lastMousePosY;
     glfwGetCursorPos(window, &lastMousePosX, &lastMousePosY);
 
-    glEnable(GL_DEPTH_TEST); // Enable depth testing for 3D rendering
-
     // Black background
     glClearColor(135.0f/255.0f, 206.0f/255.0f, 235.0f/255.0f, 1.0f);
     
@@ -319,16 +385,23 @@ int main(int argc, char*argv[])
     
 
     glUseProgram(shaderProgram); // Use our shader program
-    
+
+
     // Define and upload geometry to the GPU here ...
     GLuint cubeVAO = createVAO(cubeVertices, sizeof(cubeVertices));
     GLuint floorVAO = createTexturedVAO(floorVertices,sizeof(floorVertices));
     GLuint roadVAO = createTexturedVAO(roadVertices, sizeof(roadVertices));
-    GLuint cybertruckVAO = createVAO(cybertruckVertices, sizeof(cybertruckVertices));
     GLuint curbVAO = createTexturedVAO(const_cast<float*>(curbVerts),sizeof(curbVerts));
 
-    
-
+    // Camera variables
+    glm::vec3 cameraPos   = glm::vec3(0.0f, 1.5f,  5.0f);
+    glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
+    float cameraHorizontalAngle = 90.0f;
+    float cameraVerticalAngle = 0.0f;
+    bool  cameraFirstPerson = true; // press 1 or 2 to toggle this variable
+    float deltaTime = 0.0f; // Time between current frame and last frame
+    float lastFrame = 0.0f;
 
     // Set up projection matrix
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.f/600.f, 0.1f, 100.0f);
@@ -346,7 +419,7 @@ int main(int argc, char*argv[])
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glEnable(GL_DEPTH_TEST); // Enable depth testing for 3D rendering
-    glEnable(GL_CULL_FACE);
+    // glEnable(GL_CULL_FACE);
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
@@ -392,7 +465,7 @@ int main(int argc, char*argv[])
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
 
-        // ─── Draw textured kerbs ───────────────────────────────────────
+        // Draw textured curbs
         glUseProgram(texturedShaderProgram);
         setProjectionMatrix(texturedShaderProgram, projection);
         setViewMatrix(texturedShaderProgram, view);
@@ -407,7 +480,7 @@ int main(int argc, char*argv[])
 
         // left side
         glm::mat4 curbL = glm::translate(glm::mat4(1.0f),
-                        glm::vec3(-offset, 0.002f, 0.0f)) *
+                        glm::vec3(-offset, 0.003f, 0.0f)) *
                         glm::scale(glm::mat4(1.0f),
                         glm::vec3(curbW, 0.01f, 100.0f));
         setWorldMatrix(texturedShaderProgram, curbL);
@@ -415,7 +488,7 @@ int main(int argc, char*argv[])
 
         // right side  (same texture, mirrored)
         glm::mat4 curbR = glm::translate(glm::mat4(1.0f),
-                        glm::vec3( offset, 0.002f, 0.0f)) *
+                        glm::vec3( offset, 0.003f, 0.0f)) *
                         glm::scale(glm::mat4(1.0f),
                         glm::vec3(curbW, 0.01f, 100.0f));
         setWorldMatrix(texturedShaderProgram, curbR);
@@ -430,15 +503,16 @@ int main(int argc, char*argv[])
         // glDrawArrays(GL_TRIANGLES, 0, 36); // 36 vertices for a cube
         
         // Draw the Cybertruck (centered and scaled)
-        glUseProgram(shaderProgram);
 
-        int vertexCount = sizeof(cybertruckVertices) / (6 * sizeof(float));
-        glm::mat4 cybertruckModel = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0.5f, 0.0f)) *
-                            glm::rotate(glm::mat4(1.0f), glm::radians(yaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
-                            glm::scale(glm::mat4(1.0f), glm::vec3(5.0f));
-        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &cybertruckModel[0][0]);
-        glBindVertexArray(cybertruckVAO);
-        glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+        ModelData cybertruckData = loadModelWithAssimp("Models/SUV.obj");
+        glUseProgram(shaderProgram);
+        setProjectionMatrix(shaderProgram, projection);
+        setViewMatrix(shaderProgram, view);
+        setWorldMatrix(shaderProgram, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f)));
+        glBindVertexArray(cybertruckData.VAO);
+        glDrawElements(GL_TRIANGLES, cybertruckData.indexCount, GL_UNSIGNED_INT, 0); // Draw the Cybertruck model
+        
+        glBindVertexArray(0); // Unbind VAO
 
 
         if(cameraFirstPerson){
@@ -525,7 +599,6 @@ int main(int argc, char*argv[])
     glDeleteVertexArrays(1, &cubeVAO);
     glDeleteVertexArrays(1, &floorVAO);
     glDeleteVertexArrays(1, &roadVAO);
-    glDeleteVertexArrays(1, &cybertruckVAO);
     glDeleteVertexArrays(1, &curbVAO);
 
     

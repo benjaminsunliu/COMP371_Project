@@ -18,7 +18,8 @@
                 "-framework",
                 "OpenGL",
                 "-lglfw",
-                "-lGLEW"
+                "-lGLEW",
+                "-lassimp"
             ],
             "options": {
                 "cwd": "${fileDirname}"
