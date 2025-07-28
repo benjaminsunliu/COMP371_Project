@@ -528,9 +528,22 @@ int main(int argc, char*argv[])
         setWorldMatrix(shaderProgram, modelMatrix);
         glBindVertexArray(birdData.VAO);
         glDrawElements(GL_TRIANGLES, birdData.indexCount, GL_UNSIGNED_INT, 0); // Draw the Bird model
-        // Unbind the VAO after drawing
-        glBindVertexArray(0); // Unbind VAO
 
+        float subAngle = glm::radians(glfwGetTime() * 60.0f); // Rotate the bird model around its own axis
+        float radius = 300.0f; // Orbit radius for the second bird
+        float yOffset = radius * sin(subAngle); // Calculate the y offset based on the angle
+        float zOffset = radius * cos(subAngle); // Calculate the z offset based on the angle
+        glm::mat4 bird2 = glm::mat4(1.0f);
+        // Translate to position the bird in orbit (around the first bird at origin)
+        bird2 = glm::translate(bird2, glm::vec3(0.0f, yOffset, zOffset));
+        bird2 = glm::scale(bird2, glm::vec3(1.0f)); 
+
+        glm::mat4 secondBird = modelMatrix * bird2; // Combine transformations
+
+        setWorldMatrix(shaderProgram, secondBird);
+        glBindVertexArray(birdData.VAO);
+        glDrawElements(GL_TRIANGLES, birdData.indexCount, GL_UNSIGNED_INT, 0); // Draw the second Bird model
+        
 
         if(cameraFirstPerson){
             view = lookAt(cameraPos,  // eye
