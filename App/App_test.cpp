@@ -361,6 +361,7 @@ int main(int argc, char*argv[])
     GLuint grassTextureID = loadTexture("Textures/grass.jpg");
     GLuint asphaltTextureID = loadTexture("Textures/asphalt.jpg");
     GLuint curbTextureID = loadTexture("Textures/curb.jpg");
+    
 
     // Initialize GLEW
     glewExperimental = true; // Needed for core profile
@@ -420,6 +421,11 @@ int main(int argc, char*argv[])
 
     glEnable(GL_DEPTH_TEST); // Enable depth testing for 3D rendering
     // glEnable(GL_CULL_FACE); This takes off the ability to see the car through the windshield so disabled for now
+
+    // load models
+    ModelData cybertruckData = loadModelWithAssimp("Models/SUV.obj");
+    ModelData birdData = loadModelWithAssimp("Models/Bird.obj");
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
@@ -448,6 +454,8 @@ int main(int argc, char*argv[])
 
         glBindVertexArray(floorVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        // Draw the hills
 
         // Draw the road
         
@@ -503,8 +511,6 @@ int main(int argc, char*argv[])
         // glDrawArrays(GL_TRIANGLES, 0, 36); // 36 vertices for a cube
         
         // Draw the Cybertruck (centered and scaled)
-
-        ModelData cybertruckData = loadModelWithAssimp("Models/SUV.obj");
         glUseProgram(shaderProgram);
         setProjectionMatrix(shaderProgram, projection);
         setViewMatrix(shaderProgram, view);
@@ -524,7 +530,6 @@ int main(int argc, char*argv[])
         birdModelMatrix = glm::rotate(birdModelMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate the bird model to face upwards
         birdModelMatrix = glm::scale(birdModelMatrix, glm::vec3(0.001f));
 
-        ModelData birdData = loadModelWithAssimp("Models/Bird.obj");
         setWorldMatrix(shaderProgram, birdModelMatrix);
         glBindVertexArray(birdData.VAO);
         glDrawElements(GL_TRIANGLES, birdData.indexCount, GL_UNSIGNED_INT, 0); // Draw the Bird model
