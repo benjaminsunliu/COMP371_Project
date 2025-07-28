@@ -187,6 +187,8 @@ GLuint loadTexture(const char *filename)
         format = GL_RGBA;
     glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 
+    std::cout << "Texture " << filename << " channels: " << nrChannels << std::endl;
+
     // Step 5 Free resources
     stbi_image_free(data);
     glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture
@@ -269,15 +271,29 @@ ModelData loadModelWithAssimp(const std::string& path) {
         aiVector3D pos = mesh->mVertices[i];
         aiVector3D normal = mesh->mNormals[i];
 
+        // Position
         vertices.push_back(pos.x);
         vertices.push_back(pos.y);
         vertices.push_back(pos.z);
 
-        vertices.push_back(normal.x);
-        vertices.push_back(normal.y);
-        vertices.push_back(normal.z);
+        // Default color (white)
+        vertices.push_back(1.0f); // R
+        vertices.push_back(1.0f); // G
+        vertices.push_back(1.0f); // B
+
+        // Texture coordinates (UV)
+        if (mesh->HasTextureCoords(0)) {
+            aiVector3D uv = mesh->mTextureCoords[0][i];
+            vertices.push_back(uv.x);
+            vertices.push_back(uv.y);
+        } else {
+            // No UVs? Use zero
+            vertices.push_back(0.0f);
+            vertices.push_back(0.0f);
+        }
     }
 
+    // Load indices
     for (unsigned int i = 0; i < mesh->mNumFaces; ++i) {
         aiFace face = mesh->mFaces[i];
         for (unsigned int j = 0; j < face.mNumIndices; ++j) {
@@ -291,24 +307,35 @@ ModelData loadModelWithAssimp(const std::string& path) {
     glGenBuffers(1, &EBO);
 
     glBindVertexArray(VAO);
-    
+
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    // Positions
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    // Set attribute pointers based on this vertex layout:
+    // 3 floats position, 3 floats color, 2 floats UV => stride = 8 floats
+
+    // Position (location = 0)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    // Normals
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+
+    // Color (location = 1)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    // UV (location = 2)
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
 
     return { VAO, static_cast<GLsizei>(indices.size()) };
 }
+
+
+
 
 
 
@@ -361,6 +388,7 @@ int main(int argc, char*argv[])
     GLuint grassTextureID = loadTexture("Textures/grass.jpg");
     GLuint asphaltTextureID = loadTexture("Textures/asphalt.jpg");
     GLuint curbTextureID = loadTexture("Textures/curb.jpg");
+    GLuint cobblestoneTextureID = loadTexture("Textures/cobblestone.jpg");
     
 
     // Initialize GLEW
@@ -425,6 +453,7 @@ int main(int argc, char*argv[])
     // load models
     ModelData cybertruckData = loadModelWithAssimp("Models/SUV.obj");
     ModelData birdData = loadModelWithAssimp("Models/Bird.obj");
+    ModelData hillData = loadModelWithAssimp("Models/semisphere.obj");
 
     // Main loop
     while (!glfwWindowShouldClose(window))
@@ -446,7 +475,6 @@ int main(int argc, char*argv[])
         glUniform1i(textureSamplerLocation, 0); // Set the texture sampler to use texture unit 0
        
         // Draw the floor
-        
         glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 0.02f, 10.0f));
         setWorldMatrix(texturedShaderProgram, floorModel);
         setProjectionMatrix(texturedShaderProgram, projection);
@@ -454,8 +482,38 @@ int main(int argc, char*argv[])
 
         glBindVertexArray(floorVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
-
+        
+        glActiveTexture(GL_TEXTURE0); // Activate texture unit 0
+        glBindTexture(GL_TEXTURE_2D, cobblestoneTextureID); // Bind the cobblestone texture
         // Draw the hills
+        
+        for (int i = 0; i < 4; ++i) {
+            glm::vec3 hillPosition;
+            float hillScale = 1.0f;
+
+            if (i == 0) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, -7.0f);
+                hillScale = 2.0f;
+            } else if (i == 1) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, -3.0f);
+                hillScale = 3.0f;
+            } else if (i == 2) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, 1.0f);
+                hillScale = 1.5f;
+            } else if (i == 3) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, 10.0f);
+                hillScale = 4.5f;
+            }
+
+            glm::mat4 hillModel = glm::translate(glm::mat4(1.0f), hillPosition) *
+                                glm::scale(glm::mat4(1.0f), glm::vec3(hillScale));
+
+            setWorldMatrix(texturedShaderProgram, hillModel);
+            setProjectionMatrix(texturedShaderProgram, projection);
+            setViewMatrix(texturedShaderProgram, view);
+            glBindVertexArray(hillData.VAO); // or whatever your VAO is
+            glDrawElements(GL_TRIANGLES, hillData.indexCount, GL_UNSIGNED_INT, 0);
+        }
 
         // Draw the road
         
@@ -464,7 +522,6 @@ int main(int argc, char*argv[])
 
         glActiveTexture(GL_TEXTURE0); // Activate texture unit 0
         glBindTexture(GL_TEXTURE_2D, asphaltTextureID); // Bind the asphalt texture
-        glUniform1i(textureSamplerLocation, 0); // Set the texture sampler to use texture unit 0
 
         setWorldMatrix(texturedShaderProgram, roadModel);
         setProjectionMatrix(texturedShaderProgram, projection);
@@ -474,7 +531,6 @@ int main(int argc, char*argv[])
 
 
         // Draw textured curbs
-        glUseProgram(texturedShaderProgram);
         setProjectionMatrix(texturedShaderProgram, projection);
         setViewMatrix(texturedShaderProgram, view);
         glBindVertexArray(curbVAO);
@@ -501,14 +557,6 @@ int main(int argc, char*argv[])
                         glm::vec3(curbW, 0.01f, 100.0f));
         setWorldMatrix(texturedShaderProgram, curbR);
         glDrawArrays(GL_TRIANGLES, 0, 6);
-
-
-
-        // // Draw the cube
-        // glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(45.0f * currentFrame), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-        // glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &cubeModel[0][0]);
-        // glBindVertexArray(cubeVAO);
-        // glDrawArrays(GL_TRIANGLES, 0, 36); // 36 vertices for a cube
         
         // Draw the Cybertruck (centered and scaled)
         glUseProgram(shaderProgram);
