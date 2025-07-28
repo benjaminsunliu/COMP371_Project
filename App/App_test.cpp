@@ -516,16 +516,16 @@ int main(int argc, char*argv[])
 
         // Draw the Bird model
         float angle = glm::radians(glfwGetTime() * 60.0f); // Rotate the bird model
-        glm::mat4 modelMatrix = glm::mat4(1.0f);
-        modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 2.0f, 2.0f));
-        modelMatrix = glm::rotate(modelMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
-        modelMatrix = glm::translate(modelMatrix, glm::vec3(2.0f, 0.0f, 0.0f)); // Position the bird above the ground
-        modelMatrix = glm::rotate(modelMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate the bird model to face upwards
-        modelMatrix = glm::scale(modelMatrix, glm::vec3(0.001f));
+        glm::mat4 birdModelMatrix = glm::mat4(1.0f);
+        birdModelMatrix = glm::translate(birdModelMatrix, glm::vec3(0.0f, 2.0f, 2.0f));
+        birdModelMatrix = glm::rotate(birdModelMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+        birdModelMatrix = glm::translate(birdModelMatrix, glm::vec3(2.0f, 0.0f, 0.0f)); // Position the bird above the ground
+        birdModelMatrix = glm::rotate(birdModelMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        birdModelMatrix = glm::rotate(birdModelMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate the bird model to face upwards
+        birdModelMatrix = glm::scale(birdModelMatrix, glm::vec3(0.001f));
 
         ModelData birdData = loadModelWithAssimp("Models/Bird.obj");
-        setWorldMatrix(shaderProgram, modelMatrix);
+        setWorldMatrix(shaderProgram, birdModelMatrix);
         glBindVertexArray(birdData.VAO);
         glDrawElements(GL_TRIANGLES, birdData.indexCount, GL_UNSIGNED_INT, 0); // Draw the Bird model
 
@@ -533,12 +533,12 @@ int main(int argc, char*argv[])
         float radius = 300.0f; // Orbit radius for the second bird
         float yOffset = radius * sin(subAngle); // Calculate the y offset based on the angle
         float zOffset = radius * cos(subAngle); // Calculate the z offset based on the angle
-        glm::mat4 bird2 = glm::mat4(1.0f);
+        glm::mat4 bird2Matrix = glm::mat4(1.0f);
         // Translate to position the bird in orbit (around the first bird at origin)
-        bird2 = glm::translate(bird2, glm::vec3(0.0f, yOffset, zOffset));
-        bird2 = glm::scale(bird2, glm::vec3(1.0f)); 
+        bird2Matrix = glm::translate(bird2Matrix, glm::vec3(0.0f, yOffset, zOffset));
+        bird2Matrix = glm::scale(bird2Matrix, glm::vec3(1.0f)); 
 
-        glm::mat4 secondBird = modelMatrix * bird2; // Combine transformations
+        glm::mat4 secondBird = birdModelMatrix * bird2Matrix; // Combine transformations
 
         setWorldMatrix(shaderProgram, secondBird);
         glBindVertexArray(birdData.VAO);
