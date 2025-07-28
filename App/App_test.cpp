@@ -419,7 +419,7 @@ int main(int argc, char*argv[])
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glEnable(GL_DEPTH_TEST); // Enable depth testing for 3D rendering
-    // glEnable(GL_CULL_FACE);
+    // glEnable(GL_CULL_FACE); This takes off the ability to see the car through the windshield so disabled for now
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
@@ -508,10 +508,27 @@ int main(int argc, char*argv[])
         glUseProgram(shaderProgram);
         setProjectionMatrix(shaderProgram, projection);
         setViewMatrix(shaderProgram, view);
-        setWorldMatrix(shaderProgram, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f)));
+        setWorldMatrix(shaderProgram, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.1f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f)));
         glBindVertexArray(cybertruckData.VAO);
         glDrawElements(GL_TRIANGLES, cybertruckData.indexCount, GL_UNSIGNED_INT, 0); // Draw the Cybertruck model
-        
+
+        glBindVertexArray(0); // Unbind VAO
+
+        // Draw the Bird model
+        float angle = glm::radians(glfwGetTime() * 60.0f); // Rotate the bird model
+        glm::mat4 modelMatrix = glm::mat4(1.0f);
+        modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 2.0f, 2.0f));
+        modelMatrix = glm::rotate(modelMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+        modelMatrix = glm::translate(modelMatrix, glm::vec3(2.0f, 0.0f, 0.0f)); // Position the bird above the ground
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate the bird model to face upwards
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(0.001f));
+
+        ModelData birdData = loadModelWithAssimp("Models/Bird.obj");
+        setWorldMatrix(shaderProgram, modelMatrix);
+        glBindVertexArray(birdData.VAO);
+        glDrawElements(GL_TRIANGLES, birdData.indexCount, GL_UNSIGNED_INT, 0); // Draw the Bird model
+        // Unbind the VAO after drawing
         glBindVertexArray(0); // Unbind VAO
 
 
