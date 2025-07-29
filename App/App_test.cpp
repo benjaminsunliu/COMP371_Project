@@ -406,7 +406,11 @@ int main(int argc, char*argv[])
     GLuint cobblestoneTextureID = loadTexture("Textures/cobblestone.jpg");
     GLuint mountainTextureID = loadTexture("Textures/moutain.jpg"); // rock texture for hills
     GLuint lightPoleTextureID = loadTexture("Textures/Light Pole.png");
-
+    // Load grandstand texture before main loop
+    GLuint grandstandTextureID = loadTexture("Textures/generic medium_01_a.png");
+    GLuint grandstandTextureB = loadTexture("Textures/generic medium_01_b.png");
+    GLuint grandstandTextureC = loadTexture("Textures/generic medium_01_c.png");
+    
     // Initialize GLEW
     glewExperimental = true; // Needed for core profile
     if (glewInit() != GLEW_OK) {
@@ -505,6 +509,8 @@ int main(int argc, char*argv[])
     ModelData birdData = loadModelWithAssimp("Models/Bird.obj");
     ModelData hillData = loadModelWithAssimp("Models/part.obj");
     ModelData lightPoleData = loadModelWithAssimp("Models/Light Pole.obj");
+    // Load the grandstand model using the Assimp loader
+    ModelData grandstandData = loadModelWithAssimp("Models/generic medium.obj");
 
     // Main loop
     while (!glfwWindowShouldClose(window))
@@ -705,6 +711,37 @@ int main(int argc, char*argv[])
             glDrawElements(GL_TRIANGLES, lightPoleData.indexCount, GL_UNSIGNED_INT, 0);
         }
 
+
+        // Draw the grandstands after rendering the light poles, rotating textures for variety
+        std::vector<glm::vec3> grandstandPositions;
+        for (float z = -45.0f; z <= 45.0f; z += 10.0f) {
+            grandstandPositions.push_back(glm::vec3(-6.0f, 0.0f, z)); // Left side
+            grandstandPositions.push_back(glm::vec3( 6.0f, 0.0f, z)); // Right side
+        }
+
+        std::vector<GLuint> grandstandTextures = {
+            grandstandTextureID,
+            grandstandTextureB,
+            grandstandTextureC,
+            grandstandTextureID
+        };
+
+        for (size_t i = 0; i < grandstandPositions.size(); ++i) {
+            glBindTexture(GL_TEXTURE_2D, grandstandTextures[i % grandstandTextures.size()]);
+            glUniform1i(textureSamplerLocation, 0);
+            glUniform1f(uvScaleLocation, 1.0f);
+
+            // Corrected rotation: x > 0.0f gets 270, else 90
+            float angle = (grandstandPositions[i].x > 0.0f) ? 270.0f : 90.0f;
+            glm::mat4 grandstandModel = glm::translate(glm::mat4(1.0f), grandstandPositions[i]) *
+                                        glm::rotate(glm::mat4(1.0f), glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                        glm::scale(glm::mat4(1.0f), glm::vec3(0.3f));  // Increased scale for visibility
+            setWorldMatrix(texturedShaderProgram, grandstandModel);
+            setProjectionMatrix(texturedShaderProgram, projection);
+            setViewMatrix(texturedShaderProgram, view);
+            glBindVertexArray(grandstandData.VAO);
+            glDrawElements(GL_TRIANGLES, grandstandData.indexCount, GL_UNSIGNED_INT, 0);
+        }
 
         // Draw textured curbs
         setProjectionMatrix(texturedShaderProgram, projection);

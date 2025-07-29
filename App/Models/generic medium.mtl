@@ -1,0 +1,36 @@
+# Blender MTL File: 'None'
+# Material Count: 3
+
+newmtl el_grandstand_brabham_a_seat_material
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni -1.000000
+d 1.000000
+illum 1
+map_Kd generic medium_01_c.png
+
+newmtl mel_grandstand_brabham_a!0_material
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni -1.000000
+d 1.000000
+illum 1
+map_Kd generic medium_01_a.png
+
+newmtl mel_grandstand_railing!0_material.001
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.640000 0.640000 0.640000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni -1.000000
+d 1.000000
+illum 1
+map_Kd generic medium_01_b.png
+map_d generic medium_01_b.png
