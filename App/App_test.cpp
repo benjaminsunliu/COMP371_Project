@@ -28,6 +28,15 @@
 using namespace glm;
 using namespace std;   
 
+// Cloud quad for sky/clouds
+float skyQuad[] = {
+    // positions        // colors       // uvs
+    -1.0f,  1.0f, 0.0f,  1, 1, 1,  0.0f, 1.0f,
+    -1.0f, -1.0f, 0.0f,  1, 1, 1,  0.0f, 0.0f,
+     1.0f,  1.0f, 0.0f,  1, 1, 1,  1.0f, 1.0f,
+     1.0f, -1.0f, 0.0f,  1, 1, 1,  1.0f, 0.0f
+};
+
 // Mouse state
 double lastX = 0.0f, lastY = 0.0f;
 float yaw = 0.0f;
@@ -143,17 +152,22 @@ const char* getTexturedVertexShaderSource()
 const char* getTexturedFragmentShaderSource()
 {
     return
-                "#version 330 core\n"
-                "in vec3 vertexColor;"
-                "in vec2 vertexUV;"
-                "uniform sampler2D textureSampler;"
-                ""
-                "out vec4 FragColor;"
-                "void main()"
-                "{"
-                "   vec4 textureColor = texture(textureSampler, vertexUV);"
-                "   FragColor = textureColor;"
-                "}";
+        "#version 330 core\n"
+        "in vec3 vertexColor;"
+        "in vec2 vertexUV;"
+        "uniform sampler2D textureSampler;"
+        "uniform bool useBlackKey;"
+        "out vec4 FragColor;"
+        "void main()"
+        "{"
+        "    vec4 tex = texture(textureSampler, vertexUV);"
+        "    if (useBlackKey) {"
+        "        if (tex.r < 0.05 && tex.g < 0.05 && tex.b < 0.05) discard;"
+        "        FragColor = vec4(tex.rgb, 1.0);"
+        "    } else {"
+        "        FragColor = tex;"
+        "    }"
+        "}";
 }
 
 GLuint loadTexture(const char *filename)
@@ -392,7 +406,6 @@ int main(int argc, char*argv[])
     GLuint cobblestoneTextureID = loadTexture("Textures/cobblestone.jpg");
     GLuint mountainTextureID = loadTexture("Textures/moutain.jpg"); // rock texture for hills
     GLuint lightPoleTextureID = loadTexture("Textures/Light Pole.png");
-    
 
     // Initialize GLEW
     glewExperimental = true; // Needed for core profile
@@ -401,6 +414,40 @@ int main(int argc, char*argv[])
         glfwTerminate();
         return -1;
     }
+
+    // Cloud setup (must be after GLEW init)
+    GLuint cloudTexture1 = loadTexture("Textures/01.png");
+    GLuint cloudTexture2 = loadTexture("Textures/02.png");
+    GLuint cloudTexture3 = loadTexture("Textures/03.png");
+    GLuint cloudVAO = createTexturedVAO(skyQuad, sizeof(skyQuad));
+
+    struct Cloud {
+        GLuint textureID;
+        glm::vec3 position;
+        float speed;
+        float scale;
+    };
+    std::vector<Cloud> clouds = {
+        {cloudTexture1, glm::vec3(-30.0f, 12.0f, 40.0f), 0.5f, 4.0f},
+        {cloudTexture2, glm::vec3(25.0f, 14.0f, 30.0f), 0.3f, 5.0f},
+        {cloudTexture3, glm::vec3(0.0f, 11.0f, 60.0f), 0.4f, 3.5f},
+        {cloudTexture1, glm::vec3(10.0f, 13.0f, -10.0f), 0.4f, 4.2f},
+        {cloudTexture2, glm::vec3(-15.0f, 15.0f, -20.0f), 0.3f, 3.8f},
+        {cloudTexture3, glm::vec3(-50.0f, 13.0f, 10.0f), 0.2f, 4.5f},
+        {cloudTexture1, glm::vec3(40.0f, 16.0f, -35.0f), 0.3f, 3.9f},
+        {cloudTexture2, glm::vec3(-20.0f, 14.5f, -50.0f), 0.4f, 5.2f},
+        {cloudTexture3, glm::vec3(30.0f, 12.5f, 20.0f), 0.3f, 4.1f},
+        {cloudTexture1, glm::vec3(-10.0f, 15.0f, 0.0f), 0.5f, 4.8f},
+
+        {cloudTexture2, glm::vec3(5.0f, 13.5f, 15.0f), 0.3f, 3.7f},
+        {cloudTexture3, glm::vec3(-25.0f, 14.0f, -15.0f), 0.4f, 4.5f},
+        {cloudTexture1, glm::vec3(20.0f, 13.0f, 5.0f), 0.5f, 4.3f},
+        {cloudTexture3, glm::vec3(0.0f, 16.0f, -30.0f), 0.3f, 4.8f},
+        {cloudTexture2, glm::vec3(15.0f, 15.0f, 45.0f), 0.2f, 3.6f},
+
+        {cloudTexture2, glm::vec3(7.5f, 9.2f, 53.5f), 0.4f, 4.2f},
+        {cloudTexture3, glm::vec3(-12.0f, 6.0f, 57.0f), 0.3f, 3.9f},
+    };
 
     // For frame time
     float lastFrameTime = glfwGetTime();
@@ -471,10 +518,42 @@ int main(int argc, char*argv[])
         // Get the location of the color uniform
         int colorLocation = glGetUniformLocation(shaderProgram, "vertexColor");
 
-
+        // --- CLOUDS DRAWING (before other objects) ---
         glUseProgram(texturedShaderProgram);
         GLuint textureSamplerLocation = glGetUniformLocation(texturedShaderProgram, "textureSampler");
         GLint uvScaleLocation = glGetUniformLocation(texturedShaderProgram, "uvScale");
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        GLint useBlackKeyLoc = glGetUniformLocation(texturedShaderProgram, "useBlackKey");
+        glUniform1i(useBlackKeyLoc, GL_FALSE);
+
+        for (auto& cloud : clouds) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, cloud.textureID);
+            glUniform1i(textureSamplerLocation, 0);
+            glUniform1f(uvScaleLocation, 1.0f);
+            // Y-axis-constrained billboarding: make the cloud face the camera
+            glm::vec3 cloudToCamera = glm::normalize(cameraPos - cloud.position);
+            glm::mat4 billboardRotation = glm::inverse(glm::lookAt(glm::vec3(0), cloudToCamera, glm::vec3(0, 1, 0)));
+            billboardRotation[3] = glm::vec4(0, 0, 0, 1); // clear translation
+            glm::mat4 model = glm::translate(glm::mat4(1.0f), cloud.position) *
+                              billboardRotation *
+                              glm::scale(glm::mat4(1.0f), glm::vec3(cloud.scale));
+            setWorldMatrix(texturedShaderProgram, model);
+            setProjectionMatrix(texturedShaderProgram, projection);
+            setViewMatrix(texturedShaderProgram, view);
+            glBindVertexArray(cloudVAO);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        }
+
+        glUniform1i(useBlackKeyLoc, GL_FALSE);
+        glDisable(GL_BLEND);
+
+        // --- END CLOUDS ---
+
+        glUseProgram(texturedShaderProgram);
+        // textureSamplerLocation and uvScaleLocation already obtained above
         glActiveTexture(GL_TEXTURE0); // Activate texture unit 0
         glBindTexture(GL_TEXTURE_2D, grassTextureID); // Bind the grass texture
         glUniform1i(textureSamplerLocation, 0); // Set the texture sampler to use texture unit 0
