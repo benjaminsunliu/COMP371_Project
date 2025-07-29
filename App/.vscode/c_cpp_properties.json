@@ -4,9 +4,14 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
+                "/opt/homebrew/include",
                 "/opt/homebrew/opt/glew/include",
                 "/opt/homebrew/opt/glfw/include",
-                "/opt/homebrew/opt/glm/include"
+                "/opt/homebrew/opt/glm/include",
+                "/opt/homebrew/opt/assimp/include"
+            ],
+            "libPath": [
+                "/opt/homebrew/lib"
             ],
             "defines": [],
             "macFrameworkPath": [

@@ -18,6 +18,8 @@
 
 #include <glm/glm.hpp>  // GLM is an optimized math library with syntax to similar to OpenGL Shading Language
 #include <glm/gtc/matrix_transform.hpp> // include this to create transformation matrices
+
+#include <cassert>
 #include <glm/common.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -116,7 +118,6 @@ int compileAndLinkShaders(const char* vertexShaderSource, const char* fragmentSh
 
 const char* getTexturedVertexShaderSource()
 {
-    // For now, you use a string for your shader code, in the assignment, shaders will be stored in .glsl files
     return
                 "#version 330 core\n"
                 "layout (location = 0) in vec3 aPos;"
@@ -126,6 +127,7 @@ const char* getTexturedVertexShaderSource()
                 "uniform mat4 world;"
                 "uniform mat4 view = mat4(1.0);"  // default value for view matrix (identity)
                 "uniform mat4 projection = mat4(1.0);"
+                "uniform float uvScale;"           // NEW: scale/tile UVs
                 ""
                 "out vec3 vertexColor;"
                 "out vec2 vertexUV;"
@@ -134,7 +136,7 @@ const char* getTexturedVertexShaderSource()
                 "   vertexColor = aColor;"
                 "   mat4 modelViewProjection = projection * view * world;"
                 "   gl_Position = modelViewProjection * vec4(aPos.x, aPos.y, aPos.z, 1.0);"
-                "   vertexUV = aUV;"
+                "   vertexUV = aUV * uvScale;"    // NEW: apply scaling
                 "}";
 }
 
@@ -384,11 +386,12 @@ int main(int argc, char*argv[])
     });
     
     // Load textures
-
     GLuint grassTextureID = loadTexture("Textures/grass.jpg");
     GLuint asphaltTextureID = loadTexture("Textures/asphalt.jpg");
     GLuint curbTextureID = loadTexture("Textures/curb.jpg");
     GLuint cobblestoneTextureID = loadTexture("Textures/cobblestone.jpg");
+    GLuint mountainTextureID = loadTexture("Textures/moutain.jpg"); // rock texture for hills
+    GLuint lightPoleTextureID = loadTexture("Textures/Light Pole.png");
     
 
     // Initialize GLEW
@@ -424,9 +427,9 @@ int main(int argc, char*argv[])
 
     // Camera variables
     glm::vec3 cameraPos   = glm::vec3(0.0f, 1.5f,  5.0f);
-    glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
     glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
-    float cameraHorizontalAngle = 90.0f;
+    float cameraHorizontalAngle = 270.0f;
     float cameraVerticalAngle = 0.0f;
     bool  cameraFirstPerson = true; // press 1 or 2 to toggle this variable
     float deltaTime = 0.0f; // Time between current frame and last frame
@@ -453,7 +456,8 @@ int main(int argc, char*argv[])
     // load models
     ModelData cybertruckData = loadModelWithAssimp("Models/SUV.obj");
     ModelData birdData = loadModelWithAssimp("Models/Bird.obj");
-    ModelData hillData = loadModelWithAssimp("Models/semisphere.obj");
+    ModelData hillData = loadModelWithAssimp("Models/part.obj");
+    ModelData lightPoleData = loadModelWithAssimp("Models/Light Pole.obj");
 
     // Main loop
     while (!glfwWindowShouldClose(window))
@@ -470,9 +474,11 @@ int main(int argc, char*argv[])
 
         glUseProgram(texturedShaderProgram);
         GLuint textureSamplerLocation = glGetUniformLocation(texturedShaderProgram, "textureSampler");
+        GLint uvScaleLocation = glGetUniformLocation(texturedShaderProgram, "uvScale");
         glActiveTexture(GL_TEXTURE0); // Activate texture unit 0
         glBindTexture(GL_TEXTURE_2D, grassTextureID); // Bind the grass texture
         glUniform1i(textureSamplerLocation, 0); // Set the texture sampler to use texture unit 0
+        glUniform1f(uvScaleLocation, 1.0f); // floor UV scale
        
         // Draw the floor
         glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 0.02f, 10.0f));
@@ -483,30 +489,92 @@ int main(int argc, char*argv[])
         glBindVertexArray(floorVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         
-        glActiveTexture(GL_TEXTURE0); // Activate texture unit 0
-        glBindTexture(GL_TEXTURE_2D, cobblestoneTextureID); // Bind the cobblestone texture
-        // Draw the hills
-        
-        for (int i = 0; i < 4; ++i) {
+        // Draw the hills with rock texture
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, mountainTextureID);
+        glUniform1i(textureSamplerLocation, 0);
+        for (int i = 0; i < 24; ++i) {
             glm::vec3 hillPosition;
-            float hillScale = 1.0f;
-
+            float hillScale = 0.5f;
             if (i == 0) {
                 hillPosition = glm::vec3(-15.0f, 0.0f, -7.0f);
-                hillScale = 2.0f;
+                hillScale = 0.5f;
             } else if (i == 1) {
                 hillPosition = glm::vec3(-15.0f, 0.0f, -3.0f);
-                hillScale = 3.0f;
+                hillScale = 0.5f;
             } else if (i == 2) {
                 hillPosition = glm::vec3(-15.0f, 0.0f, 1.0f);
-                hillScale = 1.5f;
+                hillScale = 0.5f;
             } else if (i == 3) {
                 hillPosition = glm::vec3(-15.0f, 0.0f, 10.0f);
-                hillScale = 4.5f;
+                hillScale = 0.5f;
+            } else if (i == 4) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, 14.0f);
+                hillScale = 0.5f;
+            } else if (i == 5) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, 18.0f);
+                hillScale = 0.5f;
+            } else if (i == 6) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, 22.0f);
+                hillScale = 0.5f;
+            } else if (i == 7) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, 26.0f);
+                hillScale = 0.5f;
+            } else if (i == 8) {
+                hillPosition = glm::vec3(15.0f, 0.0f, -7.0f);
+                hillScale = 0.5f;
+            } else if (i == 9) {
+                hillPosition = glm::vec3(15.0f, 0.0f, -3.0f);
+                hillScale = 0.5f;
+            } else if (i == 10) {
+                hillPosition = glm::vec3(15.0f, 0.0f, 1.0f);
+                hillScale = 0.5f;
+            } else if (i == 11) {
+                hillPosition = glm::vec3(15.0f, 0.0f, 10.0f);
+                hillScale = 0.5f;
+            } else if (i == 12) {
+                hillPosition = glm::vec3(15.0f, 0.0f, 14.0f);
+                hillScale = 0.5f;
+            } else if (i == 13) {
+                hillPosition = glm::vec3(15.0f, 0.0f, 18.0f);
+                hillScale = 0.5f;
+            } else if (i == 14) {
+                hillPosition = glm::vec3(15.0f, 0.0f, 22.0f);
+                hillScale = 0.5f;
+            } else if (i == 15) {
+                hillPosition = glm::vec3(15.0f, 0.0f, 26.0f);
+                hillScale = 0.5f;
+            } else if (i == 16) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, 30.0f);
+                hillScale = 0.5f;
+            } else if (i == 17) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, 34.0f);
+                hillScale = 0.5f;
+            } else if (i == 18) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, 38.0f);
+                hillScale = 0.5f;
+            } else if (i == 19) {
+                hillPosition = glm::vec3(-15.0f, 0.0f, 42.0f);
+                hillScale = 0.5f;
+            } else if (i == 20) {
+                hillPosition = glm::vec3(15.0f, 0.0f, 30.0f);
+                hillScale = 0.5f;
+            } else if (i == 21) {
+                hillPosition = glm::vec3(15.0f, 0.0f, 34.0f);
+                hillScale = 0.5f;
+            } else if (i == 22) {
+                hillPosition = glm::vec3(15.0f, 0.0f, 38.0f);
+                hillScale = 0.5f;
+            } else if (i == 23) {
+                hillPosition = glm::vec3(15.0f, 0.0f, 42.0f);
+                hillScale = 0.5f;
             }
 
+            // Keep texture density roughly constant w.r.t. mesh scaling
+            glUniform1f(uvScaleLocation, 10.0f / hillScale);
+
             glm::mat4 hillModel = glm::translate(glm::mat4(1.0f), hillPosition) *
-                                glm::scale(glm::mat4(1.0f), glm::vec3(hillScale));
+                                  glm::scale(glm::mat4(1.0f), glm::vec3(hillScale));
 
             setWorldMatrix(texturedShaderProgram, hillModel);
             setProjectionMatrix(texturedShaderProgram, projection);
@@ -520,14 +588,43 @@ int main(int argc, char*argv[])
         glm::mat4 roadModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.001f, -50.0f)) *
                             glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 0.01f, 100.0f));
 
-        glActiveTexture(GL_TEXTURE0); // Activate texture unit 0
-        glBindTexture(GL_TEXTURE_2D, asphaltTextureID); // Bind the asphalt texture
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, asphaltTextureID);
+        glUniform1i(textureSamplerLocation, 0);
+        glUniform1f(uvScaleLocation, 1.0f); // road UV scale
 
         setWorldMatrix(texturedShaderProgram, roadModel);
         setProjectionMatrix(texturedShaderProgram, projection);
         setViewMatrix(texturedShaderProgram, view);
         glBindVertexArray(roadVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        // Draw the light poles along the track
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, lightPoleTextureID);
+        glUniform1i(textureSamplerLocation, 0);
+        glUniform1f(uvScaleLocation, 1.0f);
+
+        for (int i = 0; i < 16; ++i) {
+            glm::vec3 polePosition;
+            float poleScale = 0.3f;
+
+            if (i < 8) {
+                // left side
+                polePosition = glm::vec3(-8.0f, 3.0f, -7.0f + i * 6.0f);
+            } else {
+                // right side
+                polePosition = glm::vec3(8.0f, 3.0f, -7.0f + (i - 8) * 6.0f);
+            }
+
+            glm::mat4 poleModel = glm::translate(glm::mat4(1.0f), polePosition) *
+                                  glm::scale(glm::mat4(1.0f), glm::vec3(poleScale));
+            setWorldMatrix(texturedShaderProgram, poleModel);
+            setProjectionMatrix(texturedShaderProgram, projection);
+            setViewMatrix(texturedShaderProgram, view);
+            glBindVertexArray(lightPoleData.VAO);
+            glDrawElements(GL_TRIANGLES, lightPoleData.indexCount, GL_UNSIGNED_INT, 0);
+        }
 
 
         // Draw textured curbs
@@ -536,6 +633,7 @@ int main(int argc, char*argv[])
         glBindVertexArray(curbVAO);
         glBindTexture(GL_TEXTURE_2D, curbTextureID);   // red-white texture
         glUniform1i(glGetUniformLocation(texturedShaderProgram,"textureSampler"),0);
+        glUniform1f(uvScaleLocation, 1.0f); // curb UV scale
 
         const float curbW = 0.30f;
         const float halfRoad = 1.5f;
@@ -562,7 +660,7 @@ int main(int argc, char*argv[])
         glUseProgram(shaderProgram);
         setProjectionMatrix(shaderProgram, projection);
         setViewMatrix(shaderProgram, view);
-        setWorldMatrix(shaderProgram, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.1f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f)));
+        setWorldMatrix(shaderProgram, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.1f, 9.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f)));
         glBindVertexArray(cybertruckData.VAO);
         glDrawElements(GL_TRIANGLES, cybertruckData.indexCount, GL_UNSIGNED_INT, 0); // Draw the Cybertruck model
 
@@ -633,7 +731,7 @@ int main(int argc, char*argv[])
         lastMousePosY = mousePosY;
 
         // Convert to spherical coordinates
-        const float cameraAngularSpeed = 3.0f;
+        const float cameraAngularSpeed = 8.0f;
         cameraHorizontalAngle -= dx * cameraAngularSpeed * deltaTime;
         cameraVerticalAngle   -= dy * cameraAngularSpeed * deltaTime;
         
@@ -648,20 +746,23 @@ int main(int argc, char*argv[])
         glm::normalize(cameraSide);
 
 
+        // Speed multiplier for shift
+        float speedMultiplier = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ? 3.0f : 1.0f;
+
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){
-            cameraPos += cameraFront * deltaTime * 1.0f; // Move forward
+            cameraPos += cameraFront * deltaTime * 1.0f * speedMultiplier; // Move forward
         }
 
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS){
-            cameraPos -= cameraFront * deltaTime * 1.0f; // Move backward
+            cameraPos -= cameraFront * deltaTime * 1.0f * speedMultiplier; // Move backward
         }
 
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS){
-            cameraPos -= cameraSide * deltaTime * 1.0f; // Move left
+            cameraPos -= cameraSide * deltaTime * 1.0f * speedMultiplier; // Move left
         } 
         
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS){
-            cameraPos += cameraSide * deltaTime * 1.0f; // Move right
+            cameraPos += cameraSide * deltaTime * 1.0f * speedMultiplier; // Move right
         }
 
         // 1st person and 3rd person camera toggle
