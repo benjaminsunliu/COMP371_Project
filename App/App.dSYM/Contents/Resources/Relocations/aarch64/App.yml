@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/benjaminliu/Developer/COMP371_Project/App/App'
+relocations:     []
+...
