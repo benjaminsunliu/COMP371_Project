@@ -42,12 +42,16 @@ double lastX = 0.0f, lastY = 0.0f;
 float yaw = 0.0f;
 bool firstMouse = true;
 
+
 // Car State 
 glm::vec3 carPos = glm::vec3(0.0f, 0.0f, 5.0f);
 float carYaw = 0.0f;
 float wheelAngle = 0.0f;
 float steerAngle = 0.0f;
 GLsizei wheelIndexCount;
+
+// ---------- Tweakable tuning constants ----------
+const float WHEEL_SCALE   = 0.60f;   // final visual radius = base‑radius (0.5) × 0.60 ≈ 0.30
 
 
 
@@ -375,29 +379,49 @@ void createWheelVAO(GLuint &VAO, GLuint &VBO, GLuint &EBO, int segments = 32) {
         inds.push_back(start + 2);
     }
 
-    // ===== 2. Caps (front and back discs) =====
-    int centerFrontIndex = verts.size() / 8;
-    // Center vertex front
-    verts.insert(verts.end(), { 0, 0,  halfW,  1,1,1,  0.5f, 0.5f });
-
-    int centerBackIndex = centerFrontIndex + 1;
-    // Center vertex back
-    verts.insert(verts.end(), { 0, 0, -halfW,  1,1,1,  0.5f, 0.5f });
-
-    // Front face fan
+    // ===== 2. Caps (front / back discs) with radial UV mapping =====
+    int ringFrontStart = verts.size() / 8;
     for (int i = 0; i < segments; ++i) {
-        int next = (i + 1) % segments;
-        inds.push_back(centerFrontIndex);
-        inds.push_back(i * 2);
-        inds.push_back(next * 2);
+        float theta = 2.0f * M_PI * i / segments;
+        float x = radius * cos(theta);
+        float y = radius * sin(theta);
+        float u = (x / radius + 1.0f) * 0.5f;
+        float v = (y / radius + 1.0f) * 0.5f;
+        // front rim vertex
+        verts.insert(verts.end(), { x, y,  halfW,  1,1,1,  u, v });
     }
 
-    // Back face fan
+    int ringBackStart = verts.size() / 8;
+    for (int i = 0; i < segments; ++i) {
+        float theta = 2.0f * M_PI * i / segments;
+        float x = radius * cos(theta);
+        float y = radius * sin(theta);
+        float u = (x / radius + 1.0f) * 0.5f;
+        float v = (y / radius + 1.0f) * 0.5f;
+        // back rim vertex
+        verts.insert(verts.end(), { x, y, -halfW,  1,1,1,  u, v });
+    }
+
+    int centerFront = verts.size() / 8;
+    verts.insert(verts.end(), { 0, 0,  halfW,  1,1,1,  0.5f, 0.5f });
+
+    int centerBack  = verts.size() / 8;
+    verts.insert(verts.end(), { 0, 0, -halfW,  1,1,1,  0.5f, 0.5f });
+
+    // front disc indices
     for (int i = 0; i < segments; ++i) {
         int next = (i + 1) % segments;
-        inds.push_back(centerBackIndex);
-        inds.push_back(next * 2 + 1);
-        inds.push_back(i * 2 + 1);
+        inds.push_back(centerFront);
+        inds.push_back(ringFrontStart + i);
+        inds.push_back(ringFrontStart + next);
+    }
+
+    // back disc indices
+    for (int i = 0; i < segments; ++i) {
+        int next = (i + 1) % segments;
+        inds.push_back(centerBack);
+        inds.push_back(ringBackStart + next);
+        inds.push_back(ringBackStart + i);
     }
     wheelIndexCount = inds.size();
 
@@ -958,7 +982,7 @@ int main(int argc, char*argv[])
         glUseProgram(texturedShaderProgram);
 
         // Car Body
-        glm::mat4 bodyModel = glm::translate(glm::mat4(1.0f), carPos + glm::vec3(0, 0.5f, 0));
+        glm::mat4 bodyModel = glm::translate(glm::mat4(1.0f), carPos + glm::vec3(0, 0.25f, 0));
         bodyModel = glm::scale(bodyModel, glm::vec3(1.25f, 0.35f, 2.5f));
         setWorldMatrix(texturedShaderProgram, bodyModel);
         glBindTexture(GL_TEXTURE_2D, carTexture);
@@ -966,22 +990,22 @@ int main(int argc, char*argv[])
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 
         // Cabin
-        glm::mat4 cabinModel = glm::translate(glm::mat4(1.0f), carPos + glm::vec3(0, 1.0f, 0));
+        glm::mat4 cabinModel = glm::translate(glm::mat4(1.0f), carPos + glm::vec3(0, 0.55f, 0));
         cabinModel = glm::scale(cabinModel, glm::vec3(0.75f, 0.4f, 2.0f));
         setWorldMatrix(texturedShaderProgram, cabinModel);
         glBindVertexArray(cabinVAO);
         glDrawElements(GL_TRIANGLES, 30, GL_UNSIGNED_INT, 0);
 
         // Wheels
-        float wheelX = 0.65f, wheelZ = 1.0f;
+        float wheelX = 0.80f, wheelZ = 1.10f;
         for (int i = -1; i <= 1; i += 2) {
             for (int j = -1; j <= 1; j += 2) {
-                glm::vec3 offset(i * wheelX, 0.5f, j * wheelZ);
+                glm::vec3 offset(i * wheelX, WHEEL_SCALE * 0.5f, j * wheelZ);
                 glm::mat4 wheelModel = glm::translate(glm::mat4(1.0f), carPos + offset);
                 wheelModel = glm::rotate(wheelModel, glm::radians(90.0f), glm::vec3(0, 1, 0));
                 if (j == 1) wheelModel = glm::rotate(wheelModel, glm::radians(steerAngle), glm::vec3(0, 1, 0));
                 wheelModel = glm::rotate(wheelModel, glm::radians(wheelAngle), glm::vec3(0, 0, 1));
-                wheelModel = glm::scale(wheelModel, glm::vec3(0.35f));
+                wheelModel = glm::scale(wheelModel, glm::vec3(WHEEL_SCALE));
                 setWorldMatrix(texturedShaderProgram, wheelModel);
                 glBindTexture(GL_TEXTURE_2D, tireTexture);
                 glBindVertexArray(wheelVAO);
