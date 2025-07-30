@@ -706,6 +706,7 @@ int main(int argc, char*argv[])
     // glEnable(GL_CULL_FACE); This takes off the ability to see the car through the windshield so disabled for now
 
     // load models
+    ModelData cybertruckData = loadModelWithAssimp("Models/SUV.obj");
     ModelData birdData = loadModelWithAssimp("Models/Bird.obj");
     ModelData hillData = loadModelWithAssimp("Models/part.obj");
     ModelData lightPoleData = loadModelWithAssimp("Models/Light Pole.obj");
@@ -990,7 +991,7 @@ int main(int argc, char*argv[])
         glDrawElements(GL_TRIANGLES, 30, GL_UNSIGNED_INT, 0);
 
         // Wheels
-        float wheelX = 0.75f, wheelZ = 1.10f;
+        float wheelX = 0.80f, wheelZ = 1.10f;
         for (int i = -1; i <= 1; i += 2) {
             for (int j = -1; j <= 1; j += 2) {
                 glm::vec3 offset(i * wheelX, WHEEL_SCALE * 0.5f, j * wheelZ);
@@ -1006,7 +1007,15 @@ int main(int argc, char*argv[])
             }
         }
         
-        // (Cybertruck model rendering removed)
+        // Draw the Cybertruck (centered and scaled)
+        glUseProgram(shaderProgram);
+        setProjectionMatrix(shaderProgram, projection);
+        setViewMatrix(shaderProgram, view);
+        setWorldMatrix(shaderProgram, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.1f, 9.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f)));
+        glBindVertexArray(cybertruckData.VAO);
+        //glDrawElements(GL_TRIANGLES, cybertruckData.indexCount, GL_UNSIGNED_INT, 0); // Draw the Cybertruck model
+            
+        glBindVertexArray(0); // Unbind VAO
 
         // Draw the Bird model
         float angle = glm::radians(glfwGetTime() * 60.0f); // Rotate the bird model
