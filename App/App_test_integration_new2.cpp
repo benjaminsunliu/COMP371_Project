@@ -977,6 +977,7 @@ int main(int argc, char*argv[])
 
         // Car Body
         glm::mat4 bodyModel = glm::translate(glm::mat4(1.0f), carPos + glm::vec3(0, 0.25f, 0));
+        bodyModel = glm::rotate(bodyModel, glm::radians(180.0f), glm::vec3(0, 1, 0));
         bodyModel = glm::scale(bodyModel, glm::vec3(1.35f, 0.38f, 2.7f));
         setWorldMatrix(texturedShaderProgram, bodyModel);
         glBindTexture(GL_TEXTURE_2D, carTexture);
@@ -985,6 +986,7 @@ int main(int argc, char*argv[])
 
         // Cabin
         glm::mat4 cabinModel = glm::translate(glm::mat4(1.0f), carPos + glm::vec3(0, 0.55f, 0));
+        cabinModel = glm::rotate(cabinModel, glm::radians(180.0f), glm::vec3(0, 1, 0));
         cabinModel = glm::scale(cabinModel, glm::vec3(0.75f, 0.4f, 2.0f));
         setWorldMatrix(texturedShaderProgram, cabinModel);
         glBindVertexArray(cabinVAO);
@@ -1120,11 +1122,11 @@ int main(int argc, char*argv[])
         float carSpeed = 5.0f * deltaTime;
         float wheelSpinSpeed = 120.0f * deltaTime;
 
-        if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) {
+        if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) {
             carPos += carSpeed * glm::vec3(sin(glm::radians(carYaw)), 0.0f, -cos(glm::radians(carYaw)));
             wheelAngle -= wheelSpinSpeed;
         }
-        if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) {
+        if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) {
             carPos -= carSpeed * glm::vec3(sin(glm::radians(carYaw)), 0.0f, -cos(glm::radians(carYaw)));
             wheelAngle += wheelSpinSpeed;
         }
