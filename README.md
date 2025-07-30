@@ -1,21 +1,58 @@
-# OpenGL Project
+# OpenGL Race Game
 
-This project uses modern OpenGL for rendering, along with several supporting libraries to simplify development and improve functionality.
+A 3D race environment built using modern OpenGL (3.3 core profile) featuring:
+- Driveable car with animated wheels and steering
+- Dynamic camera system (first- and third-person toggle)
+- Textured terrain with road, curbs, and environment elements
+- Instanced models: mountains, grandstands, light poles
+- Sky system with moving clouds
+- Animated birds with hierarchical rotation
 
-## 🚀 Technologies Used
+## Features
 
-The following libraries and APIs are used in this project:
+- **Graphics APIs**: OpenGL 3.3 Core Profile with GLEW and GLFW
+- **Math**: GLM (camera, transformation matrices)
+- **Models**: Assimp to load `.obj` files
+- **Textures**: STB Image to load textures
+- **Input**: Keyboard (WASD + Shift for camera movement, IJKL for car control, 1/2 for view modes)
 
-- **OpenGL** – Core graphics rendering API.
-- **GLFW** – Window creation and input handling.
-- **GLM** – Mathematics library for graphics applications (vectors, matrices, transformations).
-- **GLEW** – OpenGL Extension Wrangler for accessing modern OpenGL functions.
-- **stb_image.h** – Header-only image loading library (used for textures).
+## Controls
 
-## 🛠️ Building the Project
+| Key         | Action                          |
+|-------------|----------------------------------|
+| `W/A/S/D`   | Move camera (1st/3rd person)     |
+| `Shift`     | Move camera faster               |
+| `I/K`       | Move car forward/backward        |
+| `J/L`       | Steer car left/right             |
+| `1`         | First-person camera              |
+| `2`         | Third-person camera              |
+| `ESC`       | Quit program                     |
 
-Make sure you have all the dependencies installed and linked properly in your build system (e.g., `CMake`, `Makefile`, or directly in your IDE).
+## Models and Textures
 
-Typical linking includes:
-- `-lGL -lglfw -lGLEW`
+### Models (in `Models/`)
+- `Bird.obj`
+- `part.obj` (hills)
+- `Light Pole.obj`
+- `generic medium.obj` (grandstand)
 
+### Textures (in `Textures/`)
+- `grass.jpg`
+- `asphalt.jpg`
+- `curb.jpg`
+- `cobblestone.jpg`
+- `moutain.jpg`
+- `car_wrap.jpg`
+- `tires.jpg`
+- `01.png`, `02.png`, `03.png` (clouds)
+- `generic medium_01_a.png`, `b.png`, `c.png` (grandstand textures)
+
+## Dependencies
+
+- GLEW
+- GLFW
+- GLM
+- ASSIMP
+- stb_image
+
+Make sure all libraries are installed and properly linked.
