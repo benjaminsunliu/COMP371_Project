@@ -43,7 +43,7 @@ float yaw = 0.0f;
 bool firstMouse = true;
 
 // Car State 
-glm::vec3 carPos = glm::vec3(0.0f, 0.0f, 10.0f);
+glm::vec3 carPos = glm::vec3(0.0f, 0.0f, 5.0f);
 float carYaw = 0.0f;
 float wheelAngle = 0.0f;
 float steerAngle = 0.0f;
@@ -959,7 +959,7 @@ int main(int argc, char*argv[])
 
         // Car Body
         glm::mat4 bodyModel = glm::translate(glm::mat4(1.0f), carPos + glm::vec3(0, 0.5f, 0));
-        bodyModel = glm::scale(bodyModel, glm::vec3(2.5f, 0.7f, 5.0f));
+        bodyModel = glm::scale(bodyModel, glm::vec3(1.25f, 0.35f, 2.5f));
         setWorldMatrix(texturedShaderProgram, bodyModel);
         glBindTexture(GL_TEXTURE_2D, carTexture);
         glBindVertexArray(carBodyVAO);
@@ -967,13 +967,13 @@ int main(int argc, char*argv[])
 
         // Cabin
         glm::mat4 cabinModel = glm::translate(glm::mat4(1.0f), carPos + glm::vec3(0, 1.0f, 0));
-        cabinModel = glm::scale(cabinModel, glm::vec3(1.5f, 0.8f, 4.0f));
+        cabinModel = glm::scale(cabinModel, glm::vec3(0.75f, 0.4f, 2.0f));
         setWorldMatrix(texturedShaderProgram, cabinModel);
         glBindVertexArray(cabinVAO);
         glDrawElements(GL_TRIANGLES, 30, GL_UNSIGNED_INT, 0);
 
         // Wheels
-        float wheelX = 1.3f, wheelZ = 2.0f;
+        float wheelX = 0.65f, wheelZ = 1.0f;
         for (int i = -1; i <= 1; i += 2) {
             for (int j = -1; j <= 1; j += 2) {
                 glm::vec3 offset(i * wheelX, 0.5f, j * wheelZ);
@@ -981,7 +981,7 @@ int main(int argc, char*argv[])
                 wheelModel = glm::rotate(wheelModel, glm::radians(90.0f), glm::vec3(0, 1, 0));
                 if (j == 1) wheelModel = glm::rotate(wheelModel, glm::radians(steerAngle), glm::vec3(0, 1, 0));
                 wheelModel = glm::rotate(wheelModel, glm::radians(wheelAngle), glm::vec3(0, 0, 1));
-                wheelModel = glm::scale(wheelModel, glm::vec3(0.7f));
+                wheelModel = glm::scale(wheelModel, glm::vec3(0.35f));
                 setWorldMatrix(texturedShaderProgram, wheelModel);
                 glBindTexture(GL_TEXTURE_2D, tireTexture);
                 glBindVertexArray(wheelVAO);
