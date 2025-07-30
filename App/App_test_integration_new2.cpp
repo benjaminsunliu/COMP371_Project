@@ -51,7 +51,7 @@ float steerAngle = 0.0f;
 GLsizei wheelIndexCount;
 
 // ---------- Tweakable tuning constants ----------
-const float WHEEL_SCALE   = 0.60f;   // final visual radius = base‑radius (0.5) × 0.60 ≈ 0.30
+const float WHEEL_SCALE   = 0.52f;   // final visual radius = base‑radius (0.5) × 0.52 ≈ 0.26
 
 
 
@@ -379,16 +379,13 @@ void createWheelVAO(GLuint &VAO, GLuint &VBO, GLuint &EBO, int segments = 32) {
         inds.push_back(start + 2);
     }
 
-    // ===== 2. Caps (front / back discs) with radial UV mapping =====
+    // ===== 2. Caps (front / back discs) with neutral UVs =====
     int ringFrontStart = verts.size() / 8;
     for (int i = 0; i < segments; ++i) {
         float theta = 2.0f * M_PI * i / segments;
         float x = radius * cos(theta);
         float y = radius * sin(theta);
-        float u = (x / radius + 1.0f) * 0.5f;
-        float v = (y / radius + 1.0f) * 0.5f;
-        // front rim vertex
-        verts.insert(verts.end(), { x, y,  halfW,  1,1,1,  u, v });
+        verts.insert(verts.end(), { x, y,  halfW,  1,1,1,  0.5f, 0.5f });  // neutral UV
     }
 
     int ringBackStart = verts.size() / 8;
@@ -396,10 +393,7 @@ void createWheelVAO(GLuint &VAO, GLuint &VBO, GLuint &EBO, int segments = 32) {
         float theta = 2.0f * M_PI * i / segments;
         float x = radius * cos(theta);
         float y = radius * sin(theta);
-        float u = (x / radius + 1.0f) * 0.5f;
-        float v = (y / radius + 1.0f) * 0.5f;
-        // back rim vertex
-        verts.insert(verts.end(), { x, y, -halfW,  1,1,1,  u, v });
+        verts.insert(verts.end(), { x, y, -halfW,  1,1,1,  0.5f, 0.5f });  // neutral UV
     }
 
     int centerFront = verts.size() / 8;
@@ -983,7 +977,7 @@ int main(int argc, char*argv[])
 
         // Car Body
         glm::mat4 bodyModel = glm::translate(glm::mat4(1.0f), carPos + glm::vec3(0, 0.25f, 0));
-        bodyModel = glm::scale(bodyModel, glm::vec3(1.25f, 0.35f, 2.5f));
+        bodyModel = glm::scale(bodyModel, glm::vec3(1.35f, 0.38f, 2.7f));
         setWorldMatrix(texturedShaderProgram, bodyModel);
         glBindTexture(GL_TEXTURE_2D, carTexture);
         glBindVertexArray(carBodyVAO);
