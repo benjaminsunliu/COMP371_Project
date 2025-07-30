@@ -993,7 +993,7 @@ int main(int argc, char*argv[])
         glDrawElements(GL_TRIANGLES, 30, GL_UNSIGNED_INT, 0);
 
         // Wheels
-        float wheelX = 0.80f, wheelZ = 1.10f;
+        float wheelX = 0.75f, wheelZ = 1.10f;
         for (int i = -1; i <= 1; i += 2) {
             for (int j = -1; j <= 1; j += 2) {
                 glm::vec3 offset(i * wheelX, WHEEL_SCALE * 0.5f, j * wheelZ);
