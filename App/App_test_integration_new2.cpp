@@ -1,14 +1,13 @@
 #include <iostream>
 #include "vertexData.h"
 #include "CarVertex/CyberTruck.h"
+#include "shaderLoader.h"
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-
-
 
 #define GLEW_STATIC 1   // This allows linking with Static Library on Windows, without DLL
 #include <GL/glew.h>    // Include GLEW - OpenGL Extension Wrangler
@@ -53,136 +52,7 @@ GLsizei wheelIndexCount;
 // ---------- Tweakable tuning constants ----------
 const float WHEEL_SCALE   = 0.52f;   // final visual radius = base‑radius (0.5) × 0.52 ≈ 0.26
 
-
-
-const char* getVertexShaderSource()
-{
-    return
-        "#version 330 core\n"
-        "layout (location = 0) in vec3 aPos;"
-        "layout (location = 1) in vec3 aColor;"
-        "layout (location = 2) in vec3 aNormal;"
-        ""
-        "out vec3 vertexColor;"
-        "out vec3 vertexNormal;"
-        "uniform mat4 world;"
-        "uniform mat4 view;"
-        "uniform mat4 projection;"
-        ""
-        "void main()\n"
-        "{\n"
-        "   vertexNormal = aNormal;\n"
-        "   vertexColor = aColor;\n"
-        "   gl_Position = projection * view * world * vec4(aPos, 1.0);\n"
-        "}\n";
-}
-
-
-const char* getFragmentShaderSource()
-{
-    return
-        "#version 330 core\n"
-        "in vec3 vertexColor;"
-        "in vec3 vertexNormal;"
-        "out vec4 FragColor;"
-        "void main()"
-        "{"
-        "   FragColor = vec4(0.5f*vertexNormal+vec3(0.5f), 1.0f);"
-        "}";
-}
-
-int compileAndLinkShaders(const char* vertexShaderSource, const char* fragmentShaderSource)
-{
-         // vertex shader
-        int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-        glCompileShader(vertexShader);
-        // check for shader compile errors
-
-        int success;
-        char infoLog[512];
-        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-        if (!success) {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-        }
-
-        // fragment shader
-        int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-        glCompileShader(fragmentShader);
-
-        // check for shader compile errors
-        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-        if (!success){
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cerr << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-}
-        // link shaders
-        int shaderProgram = glCreateProgram();
-        glAttachShader(shaderProgram, vertexShader);
-        glAttachShader(shaderProgram, fragmentShader);
-        glLinkProgram(shaderProgram);
-
-        // check for linking errors
-        glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-        if (!success) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cerr << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-        }
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-        return shaderProgram;
-
-}
-
 // Texture methods
-
-const char* getTexturedVertexShaderSource()
-{
-    return
-                "#version 330 core\n"
-                "layout (location = 0) in vec3 aPos;"
-                "layout (location = 1) in vec3 aColor;"
-                "layout (location = 2) in vec2 aUV;"
-                ""
-                "uniform mat4 world;"
-                "uniform mat4 view = mat4(1.0);"  // default value for view matrix (identity)
-                "uniform mat4 projection = mat4(1.0);"
-                "uniform float uvScale;"           // NEW: scale/tile UVs
-                ""
-                "out vec3 vertexColor;"
-                "out vec2 vertexUV;"
-                "void main()"
-                "{"
-                "   vertexColor = aColor;"
-                "   mat4 modelViewProjection = projection * view * world;"
-                "   gl_Position = modelViewProjection * vec4(aPos.x, aPos.y, aPos.z, 1.0);"
-                "   vertexUV = aUV * uvScale;"    // NEW: apply scaling
-                "}";
-}
-
-const char* getTexturedFragmentShaderSource()
-{
-    return
-        "#version 330 core\n"
-        "in vec3 vertexColor;"
-        "in vec2 vertexUV;"
-        "uniform sampler2D textureSampler;"
-        "uniform bool useBlackKey;"
-        "out vec4 FragColor;"
-        "void main()"
-        "{"
-        "    vec4 tex = texture(textureSampler, vertexUV);"
-        "    if (useBlackKey) {"
-        "        if (tex.r < 0.05 && tex.g < 0.05 && tex.b < 0.05) discard;"
-        "        FragColor = vec4(tex.rgb, 1.0);"
-        "    } else {"
-        "        FragColor = tex;"
-        "    }"
-        "}";
-}
-
 GLuint loadTexture(const char *filename)
 {
     // Step 1 load Textures with dimension data
@@ -445,13 +315,6 @@ void createWheelVAO(GLuint &VAO, GLuint &VBO, GLuint &EBO, int segments = 32) {
     glBindVertexArray(0);
 }
 
-
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-#include <vector>
-#include <GL/glew.h>
-
 // Structure to return both VAO and index count
 struct ModelData {
     GLuint VAO;
@@ -538,11 +401,6 @@ ModelData loadModelWithAssimp(const std::string& path) {
 
     return { VAO, static_cast<GLsizei>(indices.size()) };
 }
-
-
-
-
-
 
 // Set the projection, view, and world matrices in the shader methods
 void setProjectionMatrix(int shaderProgram, const glm::mat4& projectionMatrix)
@@ -650,12 +508,14 @@ int main(int argc, char*argv[])
     double lastMousePosX, lastMousePosY;
     glfwGetCursorPos(window, &lastMousePosX, &lastMousePosY);
 
-    // Black background
+    // Sky blue background
     glClearColor(135.0f/255.0f, 206.0f/255.0f, 235.0f/255.0f, 1.0f);
     
     // Compile and link shaders here ...
-    int shaderProgram = compileAndLinkShaders(getVertexShaderSource(), getFragmentShaderSource());
-    int texturedShaderProgram = compileAndLinkShaders(getTexturedVertexShaderSource(), getTexturedFragmentShaderSource());
+    std::string shaderPathPrefix = "Shaders/";
+
+    int shaderProgram = loadSHADER(shaderPathPrefix + "vertex.glsl", shaderPathPrefix + "fragment.glsl");
+    int texturedShaderProgram = loadSHADER(shaderPathPrefix + "textureVertex.glsl", shaderPathPrefix + "textureFragment.glsl");
     
 
     glUseProgram(shaderProgram); // Use our shader program
