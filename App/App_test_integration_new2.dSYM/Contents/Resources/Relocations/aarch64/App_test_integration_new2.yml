@@ -1,5 +1,5 @@
 ---
 triple:          'arm64-apple-darwin'
-binary-path:     '/Users/benjaminliu/Downloads/COMP371_Project-1/App/App_test_integration_new2'
+binary-path:     '/Users/benjaminliu/Downloads/COMP371_Project-2/App/App_test_integration_new2'
 relocations:     []
 ...

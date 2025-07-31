@@ -15,4 +15,4 @@
                    mat4 modelViewProjection = projection * view * world;
                    gl_Position = modelViewProjection * vec4(aPos.x, aPos.y, aPos.z, 1.0);
                    vertexUV = aUV * uvScale;    
-                };
+                }

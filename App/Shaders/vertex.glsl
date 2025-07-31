@@ -14,4 +14,4 @@
            vertexNormal = aNormal;
            vertexColor = aColor;
            gl_Position = projection * view * world * vec4(aPos, 1.0);
-        };
+        }

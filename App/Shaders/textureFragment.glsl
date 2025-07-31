@@ -13,4 +13,4 @@
             } else {
                 FragColor = tex;
             }
-        };
+        }
