@@ -8,6 +8,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #define GLEW_STATIC 1   // This allows linking with Static Library on Windows, without DLL
 #include <GL/glew.h>    // Include GLEW - OpenGL Extension Wrangler
@@ -26,6 +27,9 @@
 
 using namespace glm;
 using namespace std;   
+
+// window dimensions
+const GLuint WIDTH = 1024, HEIGHT = 768;
 
 // Cloud quad for sky/clouds
 float skyQuad[] = {
@@ -139,6 +143,28 @@ GLuint createTexturedVAO(float* vertices, size_t size) {
     glEnableVertexAttribArray(2);
     return VAO;
 }
+
+    void SetUniformMat4(GLuint shader_id, const char* uniform_name,
+                        mat4 uniform_value) {
+    glUseProgram(shader_id);
+    glUniformMatrix4fv(glGetUniformLocation(shader_id, uniform_name), 1, GL_FALSE,
+                        &uniform_value[0][0]);
+    }
+
+    void SetUniformVec3(GLuint shader_id, const char* uniform_name,
+                        vec3 uniform_value) {
+    glUseProgram(shader_id);
+    glUniform3fv(glGetUniformLocation(shader_id, uniform_name), 1,
+                value_ptr(uniform_value));
+    }
+
+    template <class T>
+    void SetUniform1Value(GLuint shader_id, const char* uniform_name,
+                        T uniform_value) {
+    glUseProgram(shader_id);
+    glUniform1i(glGetUniformLocation(shader_id, uniform_name), uniform_value);
+    glUseProgram(0);
+    }
 
 void createCubeVAO(GLuint &VAO, GLuint &VBO, GLuint &EBO) {
     float vertices[] = {
@@ -516,9 +542,9 @@ int main(int argc, char*argv[])
 
     int shaderProgram = loadSHADER(shaderPathPrefix + "vertex.glsl", shaderPathPrefix + "fragment.glsl");
     int texturedShaderProgram = loadSHADER(shaderPathPrefix + "textureVertex.glsl", shaderPathPrefix + "textureFragment.glsl");
-    
+    int shadowShaderProgram = loadSHADER(shaderPathPrefix + "shadowVertex.glsl", shaderPathPrefix + "shadowFragment.glsl");
 
-    glUseProgram(shaderProgram); // Use our shader program
+
 
 
     // Define and upload geometry to the GPU here ...
@@ -536,6 +562,46 @@ int main(int argc, char*argv[])
     GLuint wheelVAO, wheelVBO, wheelEBO;
     createWheelVAO(wheelVAO, wheelVBO, wheelEBO);
    
+    
+  // Dimensions of the shadow texture, which should cover the viewport window
+  // size and shouldn't be oversized and waste resources
+  const unsigned int DEPTH_MAP_TEXTURE_SIZE = 1024;
+
+  // Variable storing index to texture used for shadow mapping
+  GLuint depth_map_texture;
+  // Get the texture
+  glGenTextures(1, &depth_map_texture);
+  // Bind the texture so the next glTex calls affect it
+  glBindTexture(GL_TEXTURE_2D, depth_map_texture);
+  // Create the texture and specify it's attributes, including widthn height,
+  // components (only depth is stored, no color information)
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, DEPTH_MAP_TEXTURE_SIZE,
+               DEPTH_MAP_TEXTURE_SIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+  // Set texture sampler parameters.
+  // The two calls below tell the texture sampler inside the shader how to
+  // upsample and downsample the texture. Here we choose the nearest filtering
+  // option, which means we just use the value of the closest pixel to the
+  // chosen image coordinate.
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  // The two calls below tell the texture sampler inside the shader how it
+  // should deal with texture coordinates outside of the [0, 1] range. Here we
+  // decide to just tile the image.
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+  // Variable storing index to framebuffer used for shadow mapping
+  GLuint depth_map_fbo;  // fbo: framebuffer object
+  // Get the framebuffer
+  glGenFramebuffers(1, &depth_map_fbo);
+  // Bind the framebuffer so the next glFramebuffer calls affect it
+  glBindFramebuffer(GL_FRAMEBUFFER, depth_map_fbo);
+  // Attach the depth map texture to the depth map framebuffer
+  // glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+  // depth_map_texture, 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+                         depth_map_texture, 0);
+  glDrawBuffer(GL_NONE);  // disable rendering colors, only write depth values
 
     // Camera variables
     glm::vec3 cameraPos   = glm::vec3(0.0f, 1.5f,  5.0f);
@@ -559,11 +625,29 @@ int main(int argc, char*argv[])
     glUniformMatrix4fv(projLocation, 1, GL_FALSE, &projection[0][0]);
     glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
     
+    // Set projection matrix on both shaders
+    SetUniformMat4(texturedShaderProgram, "projection", projection);
+
+    // Set view matrix on both shaders
+    SetUniformMat4(texturedShaderProgram, "view", view);
+
+    float lightAngleOuter = radians(30.0f);
+    float lightAngleInner = radians(20.0f);
+    // Set light cutoff angles on scene shader
+    SetUniform1Value(texturedShaderProgram, "light_cutoff_inner",                   cos(lightAngleInner));
+    SetUniform1Value(texturedShaderProgram, "light_cutoff_outer",                   cos(lightAngleOuter));
+
+    // Set light color on scene shader
+    SetUniformVec3(texturedShaderProgram, "light_color", vec3(1));
+
+    // Set object color on scene shader
+    SetUniformVec3(texturedShaderProgram, "object_color", vec3(1));
+
     // disable cursor
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glEnable(GL_DEPTH_TEST); // Enable depth testing for 3D rendering
-    // glEnable(GL_CULL_FACE); This takes off the ability to see the car through the windshield so disabled for now
+    glEnable(GL_CULL_FACE);
 
     // load models
     ModelData cybertruckData = loadModelWithAssimp("Models/SUV.obj");
@@ -581,6 +665,29 @@ int main(int argc, char*argv[])
         lastFrameTime = glfwGetTime();
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen
+
+        // light parameters
+        float phiLight = glfwGetTime() * 0.5f * 3.14f;
+        vec3 lightPosition =    vec3(0.6f,50.0f,5.0f); // the location of the light in 3D space: fixed position
+            vec3(cosf(phiLight) * cosf(phiLight), sinf(phiLight),
+                -cosf(phiLight) * sinf(phiLight)) *
+            5.0f;  // variable position
+
+        vec3 lightFocus(0, 0, -1);  // the point in 3D space the light "looks" at
+        vec3 lightDirection = normalize(lightFocus - lightPosition);
+
+        float lightNearPlane = 0.01f;
+        float lightFarPlane = 400.0f;
+
+        mat4 lightProjMatrix = //frustum(-1.0f, 1.0f, -1.0f, 1.0f, lightNearPlane, lightFarPlane);
+        perspective(50.0f, (float)DEPTH_MAP_TEXTURE_SIZE /(float)DEPTH_MAP_TEXTURE_SIZE, lightNearPlane, lightFarPlane);
+        mat4 lightViewMatrix = lookAt(lightPosition, lightFocus, vec3(0, 1, 0));
+
+        SetUniformMat4(texturedShaderProgram, "light_proj_view_matrix", lightProjMatrix * lightViewMatrix);
+        SetUniform1Value(texturedShaderProgram, "light_near_plane", lightNearPlane);
+        SetUniform1Value(texturedShaderProgram, "light_far_plane", lightFarPlane);
+        SetUniformVec3(texturedShaderProgram, "light_position", lightPosition);
+        SetUniformVec3(texturedShaderProgram, "light_direction", lightDirection);
 
         // Get the location of the color uniform
         int colorLocation = glGetUniformLocation(shaderProgram, "vertexColor");
@@ -616,8 +723,33 @@ int main(int argc, char*argv[])
 
         glUniform1i(useBlackKeyLoc, GL_FALSE);
         glDisable(GL_BLEND);
-
+ 
         // --- END CLOUDS ---
+       
+        // Draw the floor
+        glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 0.02f, 10.0f));
+        SetUniformMat4(texturedShaderProgram, "world", floorModel);
+        SetUniformMat4(shadowShaderProgram, "transform_in_light_space", lightProjMatrix * lightViewMatrix * floorModel);
+        setWorldMatrix(texturedShaderProgram, floorModel);
+        setProjectionMatrix(texturedShaderProgram, projection);
+        setViewMatrix(texturedShaderProgram, view);
+        SetUniformVec3(texturedShaderProgram, "view_position", cameraPos); // white color for the floor
+
+        // Use proper shader
+        glUseProgram(shadowShaderProgram);
+        // Use proper image output size
+        glViewport(0, 0, DEPTH_MAP_TEXTURE_SIZE, DEPTH_MAP_TEXTURE_SIZE);
+        // Bind depth map texture as output framebuffer
+        glBindFramebuffer(GL_FRAMEBUFFER, depth_map_fbo);
+        // Clear depth data on the framebuffer
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glActiveTexture(GL_TEXTURE0);
+        // Bind geometry
+        glBindVertexArray(floorVAO);
+        // Draw geometry
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        // Unbind geometry
+        glBindVertexArray(0);
 
         glUseProgram(texturedShaderProgram);
         // textureSamplerLocation and uvScaleLocation already obtained above
@@ -625,15 +757,24 @@ int main(int argc, char*argv[])
         glBindTexture(GL_TEXTURE_2D, grassTextureID); // Bind the grass texture
         glUniform1i(textureSamplerLocation, 0); // Set the texture sampler to use texture unit 0
         glUniform1f(uvScaleLocation, 1.0f); // floor UV scale
-       
-        // Draw the floor
-        glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 0.02f, 10.0f));
-        setWorldMatrix(texturedShaderProgram, floorModel);
-        setProjectionMatrix(texturedShaderProgram, projection);
-        setViewMatrix(texturedShaderProgram, view);
 
+        int width, height;
+        glfwGetFramebufferSize(window, &width, &height);
+        glViewport(0, 0, width, height);
+        // Bind screen as output framebuffer
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        // Clear color and depth data on framebuffer
+        glClearColor(0.8f, 0.8f, 0.8f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // Bind depth map texture: not needed, by default it is active
+        // glActiveTexture(GL_TEXTURE0);
+        // Bind geometry
         glBindVertexArray(floorVAO);
+        // Draw geometry
+        //glDrawElements(GL_TRIANGLES, activeVertices, GL_UNSIGNED_INT, 0);
         glDrawArrays(GL_TRIANGLES, 0, 6);
+        // Unbind geometry
+        glBindVertexArray(0);
         
         // Draw the hills with rock texture
         glActiveTexture(GL_TEXTURE0);
