@@ -73,7 +73,7 @@ void main()
     vec4 tex = texture(textureSampler, vertexUV);
     if (useBlackKey && tex.r < 0.05 && tex.g < 0.05 && tex.b < 0.05) discard;
 
-    float light_scalar = shadow_scalar() * spotlight_scalar();
+    float light_scalar = 1;
     
     vec3 ambient  = ambient_color(light_color);
     vec3 diffuse  = light_scalar * diffuse_color(light_color, light_position);

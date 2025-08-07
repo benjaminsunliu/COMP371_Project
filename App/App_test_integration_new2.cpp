@@ -130,19 +130,25 @@ GLuint createTexturedVAO(float* vertices, size_t size) {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
 
-    //position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);              
+    // Position attribute (location = 0)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    // color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    // Color attribute (location = 1)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    // uv attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    // UV attribute (location = 2)
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
+
+    // Normal attribute (location = 3)
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(8 * sizeof(float)));
+    glEnableVertexAttribArray(3);
+
     return VAO;
 }
+
 
     void SetUniformMat4(GLuint shader_id, const char* uniform_name,
                         mat4 uniform_value) {
@@ -349,7 +355,7 @@ struct ModelData {
 
 ModelData loadModelWithAssimp(const std::string& path) {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(path, 
+    const aiScene* scene = importer.ReadFile(path,
         aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_JoinIdenticalVertices);
 
     if (!scene || !scene->HasMeshes()) {
@@ -365,26 +371,30 @@ ModelData loadModelWithAssimp(const std::string& path) {
         aiVector3D pos = mesh->mVertices[i];
         aiVector3D normal = mesh->mNormals[i];
 
-        // Position
+        // Position (3)
         vertices.push_back(pos.x);
         vertices.push_back(pos.y);
         vertices.push_back(pos.z);
 
-        // Default color (white)
+        // Default color (white) (3)
         vertices.push_back(1.0f); // R
         vertices.push_back(1.0f); // G
         vertices.push_back(1.0f); // B
 
-        // Texture coordinates (UV)
+        // UV (2)
         if (mesh->HasTextureCoords(0)) {
             aiVector3D uv = mesh->mTextureCoords[0][i];
             vertices.push_back(uv.x);
             vertices.push_back(uv.y);
         } else {
-            // No UVs? Use zero
             vertices.push_back(0.0f);
             vertices.push_back(0.0f);
         }
+
+        // Normal (3)
+        vertices.push_back(normal.x);
+        vertices.push_back(normal.y);
+        vertices.push_back(normal.z);
     }
 
     // Load indices
@@ -395,6 +405,7 @@ ModelData loadModelWithAssimp(const std::string& path) {
         }
     }
 
+    // OpenGL buffer setup
     GLuint VBO, VAO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -408,25 +419,30 @@ ModelData loadModelWithAssimp(const std::string& path) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    // Set attribute pointers based on this vertex layout:
-    // 3 floats position, 3 floats color, 2 floats UV => stride = 8 floats
+    // Layout: 3 pos, 3 color, 2 uv, 3 normal = 11 floats
+    constexpr GLsizei stride = 11 * sizeof(float);
 
     // Position (location = 0)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
 
     // Color (location = 1)
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     // UV (location = 2)
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
+
+    // Normal (location = 3)
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(float)));
+    glEnableVertexAttribArray(3);
 
     glBindVertexArray(0);
 
     return { VAO, static_cast<GLsizei>(indices.size()) };
 }
+
 
 // Set the projection, view, and world matrices in the shader methods
 void setProjectionMatrix(int shaderProgram, const glm::mat4& projectionMatrix)
