@@ -490,6 +490,7 @@ int main(int argc, char*argv[])
         float speed;
         float scale;
     };
+    
     std::vector<Cloud> clouds = {
         {cloudTexture1, glm::vec3(-30.0f, 12.0f, 40.0f), 0.5f, 4.0f},
         {cloudTexture2, glm::vec3(25.0f, 14.0f, 30.0f), 0.3f, 5.0f},
