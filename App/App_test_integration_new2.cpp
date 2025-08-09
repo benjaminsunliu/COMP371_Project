@@ -17,6 +17,7 @@
 
 #include <glm/glm.hpp>  // GLM is an optimized math library with syntax to similar to OpenGL Shading Language
 #include <glm/gtc/matrix_transform.hpp> // include this to create transformation matrices
+#include <glm/gtc/type_ptr.hpp> // include this to convert glm types to OpenGL types
 
 #include <cassert>
 #include <glm/common.hpp>
@@ -95,7 +96,7 @@ GLuint loadTexture(const char *filename)
 }
 
 // Create a Vertex Array Object (VAO) and Vertex Buffer Object (VBO) for the vertices
-GLuint createVAO(float* vertices, size_t size) {
+GLuint createCloudVAO(float* vertices, size_t size) {
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -105,16 +106,23 @@ GLuint createVAO(float* vertices, size_t size) {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
 
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    // position attribute (location = 0) — 3 floats
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);              
     glEnableVertexAttribArray(0);
-    // color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+
+    // color attribute (location = 1) — 3 floats
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    glBindVertexArray(0);
+    // uv attribute (location = 2) — 2 floats
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    glBindVertexArray(0); // unbind VAO
+
     return VAO;
 }
+
 
 GLuint createTexturedVAO(float* vertices, size_t size) {
     GLuint VAO, VBO;
@@ -126,19 +134,28 @@ GLuint createTexturedVAO(float* vertices, size_t size) {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
 
-    //position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);              
+    // position attribute (location = 0)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)0);              
     glEnableVertexAttribArray(0);
 
-    // color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    // color attribute (location = 1)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    // uv attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    // uv attribute (location = 2)
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
+
+    // normal attribute (location = 3)
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(8 * sizeof(float)));
+    glEnableVertexAttribArray(3);
+
+    glBindVertexArray(0); // unbind VAO
+
     return VAO;
 }
+
+
 
 void createCubeVAO(GLuint &VAO, GLuint &VBO, GLuint &EBO) {
     float vertices[] = {
@@ -355,10 +372,14 @@ ModelData loadModelWithAssimp(const std::string& path) {
             vertices.push_back(uv.x);
             vertices.push_back(uv.y);
         } else {
-            // No UVs? Use zero
             vertices.push_back(0.0f);
             vertices.push_back(0.0f);
         }
+
+        // Normals
+        vertices.push_back(normal.x);
+        vertices.push_back(normal.y);
+        vertices.push_back(normal.z);
     }
 
     // Load indices
@@ -382,43 +403,31 @@ ModelData loadModelWithAssimp(const std::string& path) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    // Set attribute pointers based on this vertex layout:
-    // 3 floats position, 3 floats color, 2 floats UV => stride = 8 floats
+    // Now the vertex layout is:
+    // 3 floats position, 3 floats color, 2 floats UV, 3 floats normal
+    // total stride = 11 floats per vertex
+
+    constexpr GLsizei stride = 11 * sizeof(float);
 
     // Position (location = 0)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
 
     // Color (location = 1)
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     // UV (location = 2)
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
+
+    // Normal (location = 3)
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(float)));
+    glEnableVertexAttribArray(3);
 
     glBindVertexArray(0);
 
     return { VAO, static_cast<GLsizei>(indices.size()) };
-}
-
-// Set the projection, view, and world matrices in the shader methods
-void setProjectionMatrix(int shaderProgram, const glm::mat4& projectionMatrix)
-{
-    GLuint location = glGetUniformLocation(shaderProgram, "projection");
-    glUniformMatrix4fv(location, 1, GL_FALSE, &projectionMatrix[0][0]);
-}
-
-void setViewMatrix(int shaderProgram, const glm::mat4& viewMatrix)
-{
-    GLuint location = glGetUniformLocation(shaderProgram, "view");
-    glUniformMatrix4fv(location, 1, GL_FALSE, &viewMatrix[0][0]);
-}
-
-void setWorldMatrix(int shaderProgram, const glm::mat4& worldMatrix)
-{
-    GLuint location = glGetUniformLocation(shaderProgram, "world");
-    glUniformMatrix4fv(location, 1, GL_FALSE, &worldMatrix[0][0]);
 }
 
 int main(int argc, char*argv[])
@@ -459,6 +468,7 @@ int main(int argc, char*argv[])
     GLuint grandstandTextureC = loadTexture("Textures/generic medium_01_c.png");
     GLuint carTexture = loadTexture("Textures/car_wrap.jpg");
     GLuint tireTexture = loadTexture("Textures/tires.jpg");
+    GLuint birdTexture = loadTexture("Textures/yellow.jpg");
     
     // Initialize GLEW
     glewExperimental = true; // Needed for core profile
@@ -472,7 +482,7 @@ int main(int argc, char*argv[])
     GLuint cloudTexture1 = loadTexture("Textures/01.png");
     GLuint cloudTexture2 = loadTexture("Textures/02.png");
     GLuint cloudTexture3 = loadTexture("Textures/03.png");
-    GLuint cloudVAO = createTexturedVAO(skyQuad, sizeof(skyQuad));
+    GLuint cloudVAO = createCloudVAO(skyQuad, sizeof(skyQuad));
 
     struct Cloud {
         GLuint textureID;
@@ -514,15 +524,11 @@ int main(int argc, char*argv[])
     // Compile and link shaders here ...
     std::string shaderPathPrefix = "Shaders/";
 
-    int shaderProgram = loadSHADER(shaderPathPrefix + "vertex.glsl", shaderPathPrefix + "fragment.glsl");
+    int cloudShaderProgram = loadSHADER(shaderPathPrefix + "cloudVert.glsl", shaderPathPrefix + "cloudFrag.glsl");
     int texturedShaderProgram = loadSHADER(shaderPathPrefix + "textureVertex.glsl", shaderPathPrefix + "textureFragment.glsl");
+    int lightShaderProgram = loadSHADER(shaderPathPrefix + "lightingVert.glsl", shaderPathPrefix + "lightingFrag.glsl");    
     
-
-    glUseProgram(shaderProgram); // Use our shader program
-
-
     // Define and upload geometry to the GPU here ...
-    GLuint cubeVAO = createVAO(cubeVertices, sizeof(cubeVertices));
     GLuint floorVAO = createTexturedVAO(floorVertices,sizeof(floorVertices));
     GLuint roadVAO = createTexturedVAO(roadVertices, sizeof(roadVertices));
     GLuint curbVAO = createTexturedVAO(const_cast<float*>(curbVerts),sizeof(curbVerts));
@@ -536,6 +542,14 @@ int main(int argc, char*argv[])
     GLuint wheelVAO, wheelVBO, wheelEBO;
     createWheelVAO(wheelVAO, wheelVBO, wheelEBO);
    
+
+    // Light variables
+
+    glm::vec4 lightColor(1.0f, 1.0f, 1.0f, 1.0f); // positional light
+    
+    glm::vec3 lightPos(0.0f, 10.0f, 0.0f); // initial position
+    glm::mat4 lightModel = glm::mat4(1.0f);
+    lightModel = glm::translate(lightModel, lightPos);
 
     // Camera variables
     glm::vec3 cameraPos   = glm::vec3(0.0f, 1.5f,  5.0f);
@@ -552,18 +566,33 @@ int main(int argc, char*argv[])
     
     // Set up view matrix
     glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+    glm::mat4 model = glm::mat4(1.0f); 
 
-    GLint modelLocation = glGetUniformLocation(shaderProgram, "world");
-    GLint viewLocation  = glGetUniformLocation(shaderProgram, "view");
-    GLint projLocation  = glGetUniformLocation(shaderProgram, "projection");
-    glUniformMatrix4fv(projLocation, 1, GL_FALSE, &projection[0][0]);
-    glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
+    glm::mat4 camMatrix = projection * view;
+
+// ----------------------------------------------------
+    glUseProgram(texturedShaderProgram);
+    glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "camMatrix"), 1, GL_FALSE, glm::value_ptr(projection));
+    glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
+
+    //lighting
+
+    glUniform4f(glGetUniformLocation(texturedShaderProgram, "lightColor"), 1.0f, 1.0f, 1.0f, 1.0f);
+    glUniform3f(glGetUniformLocation(texturedShaderProgram, "lightPos"), lightPos.x, lightPos.y, lightPos.z);
+    glUniform3f(glGetUniformLocation(texturedShaderProgram, "camPos"), cameraPos.x, cameraPos.y, cameraPos.z);
+
+    // Texture
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, grassTextureID);
+    glUniform1i(glGetUniformLocation(texturedShaderProgram, "textureSampler"), 0);
+
+
     
     // disable cursor
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glEnable(GL_DEPTH_TEST); // Enable depth testing for 3D rendering
-    // glEnable(GL_CULL_FACE); This takes off the ability to see the car through the windshield so disabled for now
+    glEnable(GL_CULL_FACE);
 
     // load models
     ModelData cybertruckData = loadModelWithAssimp("Models/SUV.obj");
@@ -582,56 +611,55 @@ int main(int argc, char*argv[])
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen
 
-        // Get the location of the color uniform
-        int colorLocation = glGetUniformLocation(shaderProgram, "vertexColor");
-
         // --- CLOUDS DRAWING (before other objects) ---
-        glUseProgram(texturedShaderProgram);
-        GLuint textureSamplerLocation = glGetUniformLocation(texturedShaderProgram, "textureSampler");
-        GLint uvScaleLocation = glGetUniformLocation(texturedShaderProgram, "uvScale");
+        glUseProgram(cloudShaderProgram);
+        GLuint textureSamplerLocation = glGetUniformLocation(cloudShaderProgram, "textureSampler");
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        GLint useBlackKeyLoc = glGetUniformLocation(texturedShaderProgram, "useBlackKey");
-        glUniform1i(useBlackKeyLoc, GL_FALSE);
-
         for (auto& cloud : clouds) {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, cloud.textureID);
-            glUniform1i(textureSamplerLocation, 0);
-            glUniform1f(uvScaleLocation, 1.0f);
-            // Y-axis-constrained billboarding: make the cloud face the camera
-            glm::vec3 cloudToCamera = glm::normalize(cameraPos - cloud.position);
-            glm::mat4 billboardRotation = glm::inverse(glm::lookAt(glm::vec3(0), cloudToCamera, glm::vec3(0, 1, 0)));
-            billboardRotation[3] = glm::vec4(0, 0, 0, 1); // clear translation
-            glm::mat4 model = glm::translate(glm::mat4(1.0f), cloud.position) *
-                              billboardRotation *
-                              glm::scale(glm::mat4(1.0f), glm::vec3(cloud.scale));
-            setWorldMatrix(texturedShaderProgram, model);
-            setProjectionMatrix(texturedShaderProgram, projection);
-            setViewMatrix(texturedShaderProgram, view);
-            glBindVertexArray(cloudVAO);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, cloud.textureID);
+        glUniform1i(textureSamplerLocation, 0);
+
+        // Compute model matrix with billboarding, translation, scale, etc.
+        glm::vec3 cloudToCamera = glm::normalize(cameraPos - cloud.position);
+        glm::mat4 billboardRotation = glm::inverse(glm::lookAt(glm::vec3(0), cloudToCamera, glm::vec3(0, 1, 0)));
+        billboardRotation[3] = glm::vec4(0, 0, 0, 1);
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), cloud.position) *
+                        billboardRotation *
+                        glm::scale(glm::mat4(1.0f), glm::vec3(cloud.scale));
+
+        glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        
+        glBindVertexArray(cloudVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         }
 
-        glUniform1i(useBlackKeyLoc, GL_FALSE);
         glDisable(GL_BLEND);
 
         // --- END CLOUDS ---
 
-        glUseProgram(texturedShaderProgram);
-        // textureSamplerLocation and uvScaleLocation already obtained above
-        glActiveTexture(GL_TEXTURE0); // Activate texture unit 0
-        glBindTexture(GL_TEXTURE_2D, grassTextureID); // Bind the grass texture
-        glUniform1i(textureSamplerLocation, 0); // Set the texture sampler to use texture unit 0
-        glUniform1f(uvScaleLocation, 1.0f); // floor UV scale
-       
-        // Draw the floor
-        glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 0.02f, 10.0f));
-        setWorldMatrix(texturedShaderProgram, floorModel);
-        setProjectionMatrix(texturedShaderProgram, projection);
-        setViewMatrix(texturedShaderProgram, view);
+       glUseProgram(texturedShaderProgram);
 
+        // Activate and bind texture unit 0 with your grass texture
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, grassTextureID);
+        glUniform1i(glGetUniformLocation(texturedShaderProgram, "textureSampler"), 0);
+
+        // Compute floor model matrix
+        glm::mat4 floorModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.01f, 0.0f))
+                        * glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 0.02f, 10.0f));
+
+        // Compute view and projection matrices (update if camera moves)
+        glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        glm::mat4 camMatrix = projection * view;
+
+        // Set uniforms
+        glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "camMatrix"), 1, GL_FALSE, glm::value_ptr(camMatrix));
+        glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(floorModel));
+
+        // Bind VAO for the floor and draw
         glBindVertexArray(floorVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         
@@ -716,64 +744,60 @@ int main(int argc, char*argv[])
                 hillScale = 0.5f;
             }
 
-            // Keep texture density roughly constant w.r.t. mesh scaling
-            glUniform1f(uvScaleLocation, 10.0f / hillScale);
 
             glm::mat4 hillModel = glm::translate(glm::mat4(1.0f), hillPosition) *
                                   glm::scale(glm::mat4(1.0f), glm::vec3(hillScale));
 
-            setWorldMatrix(texturedShaderProgram, hillModel);
-            setProjectionMatrix(texturedShaderProgram, projection);
-            setViewMatrix(texturedShaderProgram, view);
-            glBindVertexArray(hillData.VAO); // or whatever your VAO is
+             glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(hillModel));
+            glBindVertexArray(hillData.VAO); 
             glDrawElements(GL_TRIANGLES, hillData.indexCount, GL_UNSIGNED_INT, 0);
         }
 
-        // Draw the road
+        // // Draw the road
         
-        glm::mat4 roadModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.001f, -50.0f)) *
-                            glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 0.01f, 100.0f));
-
+        // Activate and bind your road texture
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, asphaltTextureID);
-        glUniform1i(textureSamplerLocation, 0);
-        glUniform1f(uvScaleLocation, 1.0f); // road UV scale
+        glUniform1i(glGetUniformLocation(texturedShaderProgram, "textureSampler"), 0);
 
-        setWorldMatrix(texturedShaderProgram, roadModel);
-        setProjectionMatrix(texturedShaderProgram, projection);
-        setViewMatrix(texturedShaderProgram, view);
+        // Compute your road model matrix
+        glm::mat4 roadModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -50.0f)) *
+                            glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 0.01f, 100.0f));
+
+        // Set your uniform
+        glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(roadModel));
+
+        // Bind the VAO for the road and draw it
         glBindVertexArray(roadVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        // Draw the light poles along the track
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, lightPoleTextureID);
-        glUniform1i(textureSamplerLocation, 0);
-        glUniform1f(uvScaleLocation, 1.0f);
+        // Bind the pole texture to texture unit 0
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, lightPoleTextureID);
+            glUniform1i(glGetUniformLocation(texturedShaderProgram, "textureSampler"), 0);
 
-        for (int i = 0; i < 16; ++i) {
-            glm::vec3 polePosition;
-            float poleScale = 0.3f;
+            for (int i = 0; i < 16; ++i) {
+                glm::vec3 polePosition;
+                float poleScale = 0.3f;
 
-            if (i < 8) {
-                // left side
-                polePosition = glm::vec3(-8.0f, 3.0f, -7.0f + i * 6.0f);
-            } else {
-                // right side
-                polePosition = glm::vec3(8.0f, 3.0f, -7.0f + (i - 8) * 6.0f);
+                if (i < 8) {
+                    polePosition = glm::vec3(-8.0f, 3.0f, -7.0f + i * 6.0f);
+                } else {
+                    polePosition = glm::vec3(8.0f, 3.0f, -7.0f + (i - 8) * 6.0f);
+                }
+
+                glm::mat4 poleModel = glm::translate(glm::mat4(1.0f), polePosition) *
+                                    glm::scale(glm::mat4(1.0f), glm::vec3(poleScale));
+
+                glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(poleModel));
+
+                // Bind VAO and draw
+                glBindVertexArray(lightPoleData.VAO);
+                glDrawElements(GL_TRIANGLES, lightPoleData.indexCount, GL_UNSIGNED_INT, 0);
             }
 
-            glm::mat4 poleModel = glm::translate(glm::mat4(1.0f), polePosition) *
-                                  glm::scale(glm::mat4(1.0f), glm::vec3(poleScale));
-            setWorldMatrix(texturedShaderProgram, poleModel);
-            setProjectionMatrix(texturedShaderProgram, projection);
-            setViewMatrix(texturedShaderProgram, view);
-            glBindVertexArray(lightPoleData.VAO);
-            glDrawElements(GL_TRIANGLES, lightPoleData.indexCount, GL_UNSIGNED_INT, 0);
-        }
 
-
-        // Draw the grandstands after rendering the light poles, rotating textures for variety
+        // // Draw the grandstands after rendering the light poles, rotating textures for variety
         std::vector<glm::vec3> grandstandPositions;
         for (float z = -45.0f; z <= 45.0f; z += 10.0f) {
             grandstandPositions.push_back(glm::vec3(-6.0f, 0.0f, z)); // Left side
@@ -790,27 +814,23 @@ int main(int argc, char*argv[])
         for (size_t i = 0; i < grandstandPositions.size(); ++i) {
             glBindTexture(GL_TEXTURE_2D, grandstandTextures[i % grandstandTextures.size()]);
             glUniform1i(textureSamplerLocation, 0);
-            glUniform1f(uvScaleLocation, 1.0f);
 
             // Corrected rotation: x > 0.0f gets 270, else 90
             float angle = (grandstandPositions[i].x > 0.0f) ? 270.0f : 90.0f;
             glm::mat4 grandstandModel = glm::translate(glm::mat4(1.0f), grandstandPositions[i]) *
                                         glm::rotate(glm::mat4(1.0f), glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f)) *
                                         glm::scale(glm::mat4(1.0f), glm::vec3(0.3f));  // Increased scale for visibility
-            setWorldMatrix(texturedShaderProgram, grandstandModel);
-            setProjectionMatrix(texturedShaderProgram, projection);
-            setViewMatrix(texturedShaderProgram, view);
+            
+             glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(grandstandModel));
+
             glBindVertexArray(grandstandData.VAO);
             glDrawElements(GL_TRIANGLES, grandstandData.indexCount, GL_UNSIGNED_INT, 0);
         }
 
-        // Draw textured curbs
-        setProjectionMatrix(texturedShaderProgram, projection);
-        setViewMatrix(texturedShaderProgram, view);
+        // // Draw textured curbs
         glBindVertexArray(curbVAO);
         glBindTexture(GL_TEXTURE_2D, curbTextureID);   // red-white texture
         glUniform1i(glGetUniformLocation(texturedShaderProgram,"textureSampler"),0);
-        glUniform1f(uvScaleLocation, 1.0f); // curb UV scale
 
         const float curbW = 0.30f;
         const float halfRoad = 1.5f;
@@ -822,7 +842,7 @@ int main(int argc, char*argv[])
                         glm::vec3(-offset, 0.003f, 0.0f)) *
                         glm::scale(glm::mat4(1.0f),
                         glm::vec3(curbW, 0.01f, 100.0f));
-        setWorldMatrix(texturedShaderProgram, curbL);
+        glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(curbL));
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
         // right side  (same texture, mirrored)
@@ -830,17 +850,15 @@ int main(int argc, char*argv[])
                         glm::vec3( offset, 0.003f, 0.0f)) *
                         glm::scale(glm::mat4(1.0f),
                         glm::vec3(curbW, 0.01f, 100.0f));
-        setWorldMatrix(texturedShaderProgram, curbR);
+        glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(curbR));
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        glUseProgram(texturedShaderProgram);
-
-        // Car Body
+        // // Car Body
         glm::mat4 bodyModel = glm::translate(glm::mat4(1.0f), carPos + glm::vec3(0, 0.25f, 0));
         bodyModel = glm::rotate(bodyModel, glm::radians(180.0f), glm::vec3(0, 1, 0));
         bodyModel = glm::scale(bodyModel, glm::vec3(1.35f, 0.38f, 2.7f));
-        setWorldMatrix(texturedShaderProgram, bodyModel);
         glBindTexture(GL_TEXTURE_2D, carTexture);
+        glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(bodyModel));
         glBindVertexArray(carBodyVAO);
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 
@@ -848,11 +866,11 @@ int main(int argc, char*argv[])
         glm::mat4 cabinModel = glm::translate(glm::mat4(1.0f), carPos + glm::vec3(0, 0.55f, 0));
         cabinModel = glm::rotate(cabinModel, glm::radians(180.0f), glm::vec3(0, 1, 0));
         cabinModel = glm::scale(cabinModel, glm::vec3(0.75f, 0.4f, 2.0f));
-        setWorldMatrix(texturedShaderProgram, cabinModel);
+        glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(cabinModel));
         glBindVertexArray(cabinVAO);
         glDrawElements(GL_TRIANGLES, 30, GL_UNSIGNED_INT, 0);
 
-        // Wheels
+        // // Wheels
         float wheelX = 0.75f, wheelZ = 1.10f;
         for (int i = -1; i <= 1; i += 2) {
             for (int j = -1; j <= 1; j += 2) {
@@ -862,25 +880,17 @@ int main(int argc, char*argv[])
                 if (j == 1) wheelModel = glm::rotate(wheelModel, glm::radians(steerAngle), glm::vec3(0, 1, 0));
                 wheelModel = glm::rotate(wheelModel, glm::radians(wheelAngle), glm::vec3(0, 0, 1));
                 wheelModel = glm::scale(wheelModel, glm::vec3(WHEEL_SCALE));
-                setWorldMatrix(texturedShaderProgram, wheelModel);
                 glBindTexture(GL_TEXTURE_2D, tireTexture);
+                glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(wheelModel));
                 glBindVertexArray(wheelVAO);
                 glDrawElements(GL_TRIANGLES, wheelIndexCount, GL_UNSIGNED_INT, 0);
             }
         }
-        
-        // Draw the Cybertruck (centered and scaled)
-        glUseProgram(shaderProgram);
-        setProjectionMatrix(shaderProgram, projection);
-        setViewMatrix(shaderProgram, view);
-        setWorldMatrix(shaderProgram, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.1f, 9.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f)));
-        glBindVertexArray(cybertruckData.VAO);
-        //glDrawElements(GL_TRIANGLES, cybertruckData.indexCount, GL_UNSIGNED_INT, 0); // Draw the Cybertruck model
-            
-        glBindVertexArray(0); // Unbind VAO
 
-        // Draw the Bird model
+        // // Draw the Bird model
+
         float angle = glm::radians(glfwGetTime() * 60.0f); // Rotate the bird model
+        glBindTexture(GL_TEXTURE_2D, birdTexture);
         glm::mat4 birdModelMatrix = glm::mat4(1.0f);
         birdModelMatrix = glm::translate(birdModelMatrix, glm::vec3(0.0f, 2.0f, 2.0f));
         birdModelMatrix = glm::rotate(birdModelMatrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -889,7 +899,7 @@ int main(int argc, char*argv[])
         birdModelMatrix = glm::rotate(birdModelMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate the bird model to face upwards
         birdModelMatrix = glm::scale(birdModelMatrix, glm::vec3(0.001f));
 
-        setWorldMatrix(shaderProgram, birdModelMatrix);
+        glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(birdModelMatrix));
         glBindVertexArray(birdData.VAO);
         glDrawElements(GL_TRIANGLES, birdData.indexCount, GL_UNSIGNED_INT, 0); // Draw the Bird model
 
@@ -904,7 +914,7 @@ int main(int argc, char*argv[])
 
         glm::mat4 secondBird = birdModelMatrix * bird2Matrix; // Combine transformations
 
-        setWorldMatrix(shaderProgram, secondBird);
+        glUniformMatrix4fv(glGetUniformLocation(texturedShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(secondBird));
         glBindVertexArray(birdData.VAO);
         glDrawElements(GL_TRIANGLES, birdData.indexCount, GL_UNSIGNED_INT, 0); // Draw the second Bird model
         
@@ -921,7 +931,6 @@ int main(int argc, char*argv[])
                                  cameraUp ); // up
         }
 
-        glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
 
         
         
@@ -1011,7 +1020,7 @@ int main(int argc, char*argv[])
 
     }
     
-    glDeleteVertexArrays(1, &cubeVAO);
+
     glDeleteVertexArrays(1, &floorVAO);
     glDeleteVertexArrays(1, &roadVAO);
     glDeleteVertexArrays(1, &curbVAO);
